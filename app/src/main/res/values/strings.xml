@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">Photo Time Grouper</string>
+    <string name="photo_image">Photo image</string>
+    <string name="view_mode_extra_large_icon">超大图标</string>
+    <string name="view_mode_large_icon">大图标</string>
+    <string name="view_mode_small_icon">小图标</string>
+    <string name="view_mode_details">详细信息</string>
+    <string name="view_mode_menu_title">查看方式</string>
+    <string name="video_play">播放视频</string>
+    <string name="privacy_policy">隐私政策</string>
+</resources>

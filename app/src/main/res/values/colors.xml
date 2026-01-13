@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary Colors -->
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#6750A4</color>
+    <color name="purple_700">#4F378B</color>
+    
+    <!-- Surface Colors -->
+    <color name="surface">#FFFBFE</color>
+    <color name="surface_variant">#E7E0EC</color>
+    <color name="surface_dim">#DED8E1</color>
+    
+    <!-- Text Colors -->
+    <color name="text_primary">#1C1B1F</color>
+    <color name="text_secondary">#49454F</color>
+    <color name="text_tertiary">#79747E</color>
+    <color name="text_on_surface">#FFFFFF</color>
+    
+    <!-- Card Colors -->
+    <color name="card_background">#FFFFFF</color>
+    <color name="card_background_dark">#1C1B1F</color>
+    
+    <!-- Divider -->
+    <color name="divider">#79747E</color>
+    <color name="divider_light">#E7E0EC</color>
+    
+    <!-- Legacy colors for compatibility -->
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="ic_launcher_background">#6750A4</color>
+    
+    <!-- Photo Detail Background -->
+    <color name="photo_detail_background">#000000</color>
+    <color name="photo_info_background">#80000000</color>
+</resources>

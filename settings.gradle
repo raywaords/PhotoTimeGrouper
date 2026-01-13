@@ -1,0 +1,30 @@
+pluginManagement {
+    repositories {
+        // 使用阿里云镜像加速
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/central' }
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        // 备用源
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        // Google Maven 仓库（必须在前，UTP 等测试工具需要）
+        google()
+        // 使用阿里云镜像加速（作为备用）
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/central' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        // JitPack for PhotoView
+        maven { url 'https://jitpack.io' }
+        mavenCentral()
+    }
+}
+
+include ':app'
+rootProject.name = "PhotoTimeGrouper"

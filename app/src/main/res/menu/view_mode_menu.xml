@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <group
+        android:id="@+id/view_mode_group"
+        android:checkableBehavior="single">
+        
+        <item
+            android:id="@+id/menu_extra_large_icon"
+            android:title="@string/view_mode_extra_large_icon"
+            android:checkable="true" />
+        
+        <item
+            android:id="@+id/menu_large_icon"
+            android:title="@string/view_mode_large_icon"
+            android:checkable="true" />
+        
+        <item
+            android:id="@+id/menu_small_icon"
+            android:title="@string/view_mode_small_icon"
+            android:checkable="true" />
+        
+        <item
+            android:id="@+id/menu_details"
+            android:title="@string/view_mode_details"
+            android:checkable="true" />
+    </group>
+    
+    <item
+        android:id="@+id/menu_privacy_policy"
+        android:title="@string/privacy_policy" />
+</menu>

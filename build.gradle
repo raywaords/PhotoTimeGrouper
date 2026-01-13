@@ -1,0 +1,22 @@
+buildscript {
+    ext.kotlin_version = "1.9.20"
+    repositories {
+        // 使用阿里云镜像加速
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/central' }
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        // 备用源
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.0.2'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+// allprojects 块已移除，仓库配置统一在 settings.gradle 中管理
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
