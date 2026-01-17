@@ -75,7 +75,7 @@ object PhotoMetadataLoader {
                             "${exposure.toInt()}秒"
                         } else {
                             val denominator = (1.0 / exposure).toInt()
-                            "1/$denominator秒"
+                            "1/${denominator}秒"
                         }
                     } else {
                         exifInfo["曝光时间"] = it
