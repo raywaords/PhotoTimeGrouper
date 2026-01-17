@@ -24,6 +24,23 @@ jobs:
     - name: 授予 gradlew 执行权限
       run: chmod +x gradlew
       
+    - name: 修复 gradle-wrapper.jar（如果需要）
+      run: |
+        # 检查文件大小，如果小于 50KB 则尝试修复
+        if [ -f gradle/wrapper/gradle-wrapper.jar ]; then
+          SIZE=$(stat -f%z gradle/wrapper/gradle-wrapper.jar 2>/dev/null || stat -c%s gradle/wrapper/gradle-wrapper.jar 2>/dev/null || echo 0)
+          if [ "$SIZE" -lt 50000 ]; then
+            echo "检测到 gradle-wrapper.jar 文件可能损坏，尝试修复..."
+            # 下载正确的文件
+            curl -L -o gradle/wrapper/gradle-wrapper.jar \
+              https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar || \
+            curl -L -o gradle/wrapper/gradle-wrapper.jar \
+              https://repo.maven.apache.org/maven2/org/gradle/gradle-wrapper/8.5/gradle-wrapper-8.5.jar
+            echo "修复完成"
+          fi
+        fi
+      continue-on-error: true
+      
     - name: 运行单元测试
       run: ./gradlew test --no-daemon
       
