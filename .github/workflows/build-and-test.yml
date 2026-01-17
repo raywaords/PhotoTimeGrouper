@@ -41,7 +41,13 @@ jobs:
             
       
     - name: 构建 Debug APK
-      run: ./gradlew assembleDebug --no-daemon --stacktrace
+      run: |
+        ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
+        if [ ${PIPESTATUS[0]} -ne 0 ]; then
+          echo "=== 编译错误详情 ==="
+          grep -A 5 -B 5 "error\|Error\|Unresolved\|Expecting" build.log || cat build.log
+          exit 1
+        fi --info 2>&1 | tee build.log || (cat build.log && exit 1)
       
     - name: 运行单元测试
       run: ./gradlew test --no-daemon
