@@ -12,6 +12,8 @@ buildscript {
     dependencies {
         classpath 'com.android.tools.build:gradle:8.0.2'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        // JaCoCo plugin for test coverage
+        classpath 'org.jacoco:org.jacoco.core:0.8.11'
     }
 }
 

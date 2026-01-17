@@ -34,6 +34,10 @@ jobs:
       run: ./gradlew test --no-daemon
       continue-on-error: true
       
+    - name: 生成测试覆盖率报告
+      run: ./gradlew jacocoTestReport --no-daemon
+      continue-on-error: true
+      
     - name: 上传构建产物
       if: always()
       uses: actions/upload-artifact@v4
@@ -50,6 +54,15 @@ jobs:
         path: |
           app/build/reports/tests/test/
           app/build/test-results/test/
+        retention-days: 7
+        
+    - name: 上传覆盖率报告
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-reports
+        path: |
+          app/build/reports/jacoco/jacocoTestReport/
         retention-days: 7
         
     - name: 显示测试摘要

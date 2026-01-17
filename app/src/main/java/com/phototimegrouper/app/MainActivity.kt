@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -18,6 +19,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.phototimegrouper.app.databinding.ActivityMainBinding
 import android.view.MenuItem
+import android.view.View
 import android.widget.PopupMenu
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -31,7 +33,20 @@ class MainActivity : AppCompatActivity() {
     private var currentViewMode: ViewMode = ViewMode.LARGE_ICON
     private var photoGroupAdapter: PhotoGroupAdapter? = null
     
-    // SharedPreferences 用于持久化查看模�?
+    // 选择模式相关
+    private var isSelectionMode = false
+    private val selectedPhotos = mutableSetOf<Long>()
+    
+    // 收藏功能相关
+    private val favoritePhotos = mutableSetOf<Long>()      // 收藏的照片/视频 ID 集合
+    private val PREF_FAVORITES = "pref_favorites"         // 收藏持久化用的 key
+    private var showFavoritesOnly: Boolean = false        // 是否只显示收藏内容
+    
+    // 搜索筛选相关
+    private var currentMediaTypeFilter: PhotoItem.MediaType? = null // 当前媒体类型筛选
+    private var currentDaysFilter: Int? = null // 当前日期筛选（天数，-1表示今年）
+    
+    // SharedPreferences 用于持久化查看模式和收藏等配置
     private lateinit var sharedPreferences: SharedPreferences
     private val PREF_VIEW_MODE = "pref_view_mode"
     
@@ -61,9 +76,185 @@ class MainActivity : AppCompatActivity() {
             ViewMode.LARGE_ICON
         }
 
+        // 加载收藏列表
+        loadFavorites()
+        
         setupSwipeRefresh()
         setupViewModeMenu()
+        setupSelectionMode()
         checkPermissions()
+    }
+    
+    private fun setupSelectionMode() {
+        // 全选按钮
+        binding.selectAllButton.setOnClickListener {
+            if (selectedPhotos.size == allPhotosList.size) {
+                // 取消全选
+                selectedPhotos.clear()
+                binding.selectAllButton.text = getString(R.string.select_all)
+            } else {
+                // 全选
+                selectedPhotos.clear()
+                selectedPhotos.addAll(allPhotosList.map { it.id })
+                binding.selectAllButton.text = getString(R.string.deselect_all)
+            }
+            updateSelectionUI()
+            photoGroupAdapter?.notifyDataSetChanged()
+        }
+        
+        // 分享按钮
+        binding.shareButton.setOnClickListener {
+            shareSelectedPhotos()
+        }
+        
+        // 删除按钮
+        binding.deleteButton.setOnClickListener {
+            deleteSelectedPhotos()
+        }
+        
+        // 取消选择按钮
+        binding.cancelSelectionButton.setOnClickListener {
+            exitSelectionMode()
+        }
+    }
+    
+    private fun enterSelectionMode(initialPhotoId: Long? = null) {
+        isSelectionMode = true
+        selectedPhotos.clear()
+        initialPhotoId?.let { selectedPhotos.add(it) }
+        
+        // 显示操作栏，隐藏菜单按钮
+        binding.selectionActionBar.visibility = View.VISIBLE
+        binding.viewModeMenuButton.visibility = View.GONE
+        
+        updateSelectionUI()
+        photoGroupAdapter?.notifyDataSetChanged()
+    }
+    
+    private fun exitSelectionMode() {
+        isSelectionMode = false
+        selectedPhotos.clear()
+        
+        // 隐藏操作栏，显示菜单按钮
+        binding.selectionActionBar.visibility = View.GONE
+        binding.viewModeMenuButton.visibility = View.VISIBLE
+        
+        photoGroupAdapter?.notifyDataSetChanged()
+    }
+    
+    private fun updateSelectionUI() {
+        val count = selectedPhotos.size
+        binding.selectedCountTextView.text = getString(R.string.selected_count, count)
+        binding.selectAllButton.text = if (count == allPhotosList.size && count > 0) {
+            getString(R.string.deselect_all)
+        } else {
+            getString(R.string.select_all)
+        }
+        
+        // 根据选中数量启用/禁用按钮
+        val hasSelection = count > 0
+        binding.shareButton.isEnabled = hasSelection
+        binding.deleteButton.isEnabled = hasSelection
+    }
+    
+    fun isPhotoSelected(photoId: Long): Boolean {
+        return selectedPhotos.contains(photoId)
+    }
+    
+    fun togglePhotoSelection(photoId: Long) {
+        if (selectedPhotos.contains(photoId)) {
+            selectedPhotos.remove(photoId)
+        } else {
+            selectedPhotos.add(photoId)
+        }
+        updateSelectionUI()
+    }
+    
+    private fun shareSelectedPhotos() {
+        val selectedItems = allPhotosList.filter { selectedPhotos.contains(it.id) }
+        if (selectedItems.isEmpty()) {
+            Toast.makeText(this, "请先选择要分享的照片", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        val uris = selectedItems.map { Uri.parse(it.uri) }
+        
+        // 判断是否包含视频
+        val hasVideo = selectedItems.any { it.mediaType == PhotoItem.MediaType.VIDEO }
+        val hasImage = selectedItems.any { it.mediaType == PhotoItem.MediaType.IMAGE }
+        
+        // 根据内容类型设置MIME类型
+        val mimeType = when {
+            hasVideo && hasImage -> "*/*" // 混合类型
+            hasVideo -> "video/*" // 只有视频
+            else -> "image/*" // 只有图片
+        }
+        
+        val shareIntent = Intent().apply {
+            action = Intent.ACTION_SEND_MULTIPLE
+            type = mimeType
+            putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        
+        try {
+            startActivity(Intent.createChooser(shareIntent, "分享媒体"))
+        } catch (e: Exception) {
+            Toast.makeText(this, "无法分享: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    private fun deleteSelectedPhotos() {
+        val selectedItems = allPhotosList.filter { selectedPhotos.contains(it.id) }
+        if (selectedItems.isEmpty()) {
+            Toast.makeText(this, "请先选择要删除的照片", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        AlertDialog.Builder(this)
+            .setTitle("确认删除")
+            .setMessage(getString(R.string.delete_confirm, selectedItems.size))
+            .setPositiveButton("删除") { _, _ ->
+                performDelete(selectedItems)
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+    
+    private fun performDelete(photosToDelete: List<PhotoItem>) {
+        lifecycleScope.launch {
+            try {
+                var successCount = 0
+                withContext(Dispatchers.IO) {
+                    photosToDelete.forEach { photo ->
+                        try {
+                            val uri = Uri.parse(photo.uri)
+                            val deleted = contentResolver.delete(uri, null, null)
+                            if (deleted > 0) {
+                                successCount++
+                            }
+                        } catch (e: Exception) {
+                            // 忽略单个删除失败
+                        }
+                    }
+                }
+                
+                withContext(Dispatchers.Main) {
+                    if (successCount > 0) {
+                        Toast.makeText(this@MainActivity, getString(R.string.delete_success, successCount), Toast.LENGTH_SHORT).show()
+                        // 退出选择模式并刷新列表
+                        exitSelectionMode()
+                        loadPhotos()
+                    } else {
+                        Toast.makeText(this@MainActivity, R.string.delete_failed, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "删除失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
     
     private fun setupViewModeMenu() {
@@ -104,12 +295,87 @@ class MainActivity : AppCompatActivity() {
                         openPrivacyPolicy()
                         true
                     }
+                    R.id.menu_show_favorites -> {
+                        toggleFavoritesFilter()
+                        true
+                    }
+                    R.id.menu_search -> {
+                        showSearchDialog()
+                        true
+                    }
                     else -> false
                 }
             }
             
             popupMenu.show()
         }
+    }
+    
+    private fun loadFavorites() {
+        val favoritesString = sharedPreferences.getString(PREF_FAVORITES, "")
+        favoritePhotos.clear()
+        if (!favoritesString.isNullOrEmpty()) {
+            favoritesString.split(",").forEach { idStr ->
+                idStr.trim().toLongOrNull()?.let { favoritePhotos.add(it) }
+            }
+        }
+    }
+    
+    private fun saveFavorites() {
+        val favoritesString = favoritePhotos.joinToString(",")
+        sharedPreferences.edit().putString(PREF_FAVORITES, favoritesString).apply()
+    }
+    
+    fun toggleFavorite(photoId: Long) {
+        if (favoritePhotos.contains(photoId)) {
+            favoritePhotos.remove(photoId)
+        } else {
+            favoritePhotos.add(photoId)
+        }
+        saveFavorites()
+        photoGroupAdapter?.notifyDataSetChanged()
+    }
+    
+    fun isFavorite(photoId: Long): Boolean {
+        return favoritePhotos.contains(photoId)
+    }
+    
+    private fun toggleFavoritesFilter() {
+        showFavoritesOnly = !showFavoritesOnly
+        if (showFavoritesOnly && favoritePhotos.isEmpty()) {
+            Toast.makeText(this, "您还没有收藏任何照片", Toast.LENGTH_SHORT).show()
+            showFavoritesOnly = false
+            return
+        }
+        loadPhotos() // 重新加载照片，应用筛选
+    }
+    
+    private fun showSearchDialog() {
+        // 简单的筛选对话框
+        val options = arrayOf("全部", "仅照片", "仅视频", "最近7天", "最近30天", "今年")
+        AlertDialog.Builder(this)
+            .setTitle("筛选")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> filterPhotos(null, null) // 全部
+                    1 -> filterPhotos(PhotoItem.MediaType.IMAGE, null) // 仅照片
+                    2 -> filterPhotos(PhotoItem.MediaType.VIDEO, null) // 仅视频
+                    3 -> filterPhotos(null, 7) // 最近7天
+                    4 -> filterPhotos(null, 30) // 最近30天
+                    5 -> filterPhotos(null, -1) // 今年
+                }
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+    
+    private fun filterPhotos(mediaType: PhotoItem.MediaType?, days: Int?) {
+        // 设置筛选条件
+        currentMediaTypeFilter = mediaType
+        currentDaysFilter = days
+        
+        // 重新加载照片，应用筛选
+        loadPhotos()
     }
     
     private fun updateViewMode(newViewMode: ViewMode) {
@@ -158,7 +424,7 @@ class MainActivity : AppCompatActivity() {
             if (grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
                 loadPhotos()
             } else {
-                Toast.makeText(this, "需要存储权限才能加载照�?, Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "需要存储权限才能加载照片", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -175,7 +441,42 @@ class MainActivity : AppCompatActivity() {
                     loadPhotosFromMediaStore()
                 }
                 
-                val groupedPhotos = groupPhotosByDate(photos)
+                // 应用筛选条件
+                var filteredPhotos = photos
+                
+                // 1. 应用收藏筛选
+                if (showFavoritesOnly) {
+                    filteredPhotos = filteredPhotos.filter { favoritePhotos.contains(it.id) }
+                }
+                
+                // 2. 应用媒体类型筛选
+                currentMediaTypeFilter?.let { mediaType ->
+                    filteredPhotos = filteredPhotos.filter { it.mediaType == mediaType }
+                }
+                
+                // 3. 应用日期筛选
+                currentDaysFilter?.let { days ->
+                    val currentTime = System.currentTimeMillis() / 1000 // 转换为秒
+                    filteredPhotos = filteredPhotos.filter { photo ->
+                        when (days) {
+                            -1 -> {
+                                // 今年：检查年份
+                                val photoYear = java.util.Calendar.getInstance().apply {
+                                    timeInMillis = photo.dateAdded * 1000
+                                }.get(java.util.Calendar.YEAR)
+                                val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+                                photoYear == currentYear
+                            }
+                            else -> {
+                                // 最近N天
+                                val daysAgo = currentTime - (days * 24 * 60 * 60)
+                                photo.dateAdded >= daysAgo
+                            }
+                        }
+                    }
+                }
+                
+                val groupedPhotos = groupPhotosByDate(filteredPhotos)
                 
                 withContext(Dispatchers.Main) {
                     binding.progressBar.visibility = android.view.View.GONE
@@ -193,12 +494,30 @@ class MainActivity : AppCompatActivity() {
                     
                     binding.recyclerView.layoutManager = LinearLayoutManager(this@MainActivity)
                     photoGroupAdapter = PhotoGroupAdapter(
-                        this@MainActivity, 
+                        this@MainActivity,
                         groupedPhotos,
                         currentViewMode,
+                        isSelectionMode = { isSelectionMode },
                         onPhotoClick = { photosList, position ->
-                            openPhotoDetail(photosList, position)
-                        }
+                            if (isSelectionMode) {
+                                // 选择模式下，切换选中状态
+                                val photo = photosList.getOrNull(position)
+                                photo?.let { togglePhotoSelection(it.id) }
+                                photoGroupAdapter?.notifyDataSetChanged()
+                            } else {
+                                // 普通模式下，打开详情
+                                openPhotoDetail(photosList, position)
+                            }
+                        },
+                        onPhotoLongClick = { photosList, position ->
+                            val photo = photosList.getOrNull(position)
+                            photo?.let {
+                                if (!isSelectionMode) {
+                                    enterSelectionMode(it.id)
+                                }
+                            }
+                        },
+                        isPhotoSelected = { photoId -> this@MainActivity.isPhotoSelected(photoId) }
                     )
                     binding.recyclerView.adapter = photoGroupAdapter
                 }
@@ -384,8 +703,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openPrivacyPolicy() {
-        // TODO: 将此处 URL 替换为您实际发布的隐私政策网页地址
-        val privacyPolicyUrl = "https://your-domain.com/privacy-policy.html"
+        // GitHub Pages 隐私政策地址
+        val privacyPolicyUrl = "https://raywaords.github.io/PhotoTimeGrouper/privacy-policy.html"
         
         try {
             val intent = Intent(Intent.ACTION_VIEW).apply {
@@ -403,40 +722,104 @@ class MainActivity : AppCompatActivity() {
 
     private fun openPhotoDetail(_photosList: List<PhotoItem>, position: Int) {
         val photo = _photosList.getOrNull(position) ?: return
-        
-        // 如果是视频，使用系统视频播放器打开（直接使�?mediaType 判断�?
+
+        // 视频：仍然使用系统视频播放器打开
         if (photo.mediaType == PhotoItem.MediaType.VIDEO) {
             try {
-                // 将字符串 URI 转换�?Uri 对象
                 val videoUri = Uri.parse(photo.uri)
-                
-                // 创建 Intent，使用系统默认的视频播放�?
                 val videoIntent = Intent(Intent.ACTION_VIEW).apply {
                     setDataAndType(videoUri, "video/*")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
-                
-                // 直接尝试启动，系统会自动选择合适的播放�?
-                try {
-                    startActivity(videoIntent)
-                } catch (e: android.content.ActivityNotFoundException) {
-                    // 如果没有找到播放器，提示用户
-                    Toast.makeText(this, "未找到视频播放器，请安装一个视频播放应�?, Toast.LENGTH_LONG).show()
-                } catch (e: Exception) {
-                    Toast.makeText(this, "无法播放视频: ${e.message}", Toast.LENGTH_SHORT).show()
-                }
+                startActivity(videoIntent)
+            } catch (e: android.content.ActivityNotFoundException) {
+                Toast.makeText(this, "未找到视频播放器，请安装一个视频播放应用", Toast.LENGTH_LONG).show()
             } catch (e: Exception) {
                 Toast.makeText(this, "无法播放视频: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         } else {
-            // 如果是图片，打开图片详情�?
-            // 不再通过 Intent 传递照片列表，而是通过 Application 类获�?
-            // 避免 TransactionTooLargeException（Intent 数据过大�?
-            val intent = Intent(this, PhotoDetailActivity::class.java).apply {
-                putExtra(PhotoDetailActivity.EXTRA_CURRENT_POSITION, position)
+            // 图片：使用应用内的全屏预览页（不再弹出外部应用选择框）
+            try {
+                val intent = Intent(this, PhotoDetailActivity::class.java).apply {
+                    putExtra(PhotoDetailActivity.EXTRA_CURRENT_POSITION, position)
+                }
+                startActivity(intent)
+            } catch (e: Exception) {
+                Toast.makeText(this, "无法打开图片详情: ${e.message}", Toast.LENGTH_SHORT).show()
             }
-            startActivity(intent)
+        }
+    }
+
+    /**
+     * 长按单张照片/视频时弹出的操作对话框：删除 / 分享
+     */
+    private fun showPhotoActionsDialog(photosList: List<PhotoItem>, position: Int) {
+        val photo = photosList.getOrNull(position) ?: return
+        val isFav = isFavorite(photo.id)
+
+        val items = arrayOf(
+            if (isFav) getString(R.string.unfavorite) else getString(R.string.favorite),
+            getString(R.string.delete),
+            getString(R.string.share)
+        )
+        AlertDialog.Builder(this)
+            .setTitle(photo.displayName)
+            .setItems(items) { dialog, which ->
+                when (which) {
+                    0 -> {
+                        // 收藏/取消收藏
+                        toggleFavorite(photo.id)
+                        Toast.makeText(this, if (isFav) "已取消收藏" else "已收藏", Toast.LENGTH_SHORT).show()
+                    }
+                    1 -> deleteSinglePhoto(photo)
+                    2 -> shareSinglePhoto(photo)
+                    else -> dialog.dismiss()
+                }
+            }
+            .show()
+    }
+
+    /**
+     * 删除单张照片或视频
+     */
+    private fun deleteSinglePhoto(photo: PhotoItem) {
+        try {
+            val uri = Uri.parse(photo.uri)
+            val rows = contentResolver.delete(uri, null, null)
+            if (rows > 0) {
+                Toast.makeText(this, "已删除：${photo.displayName}", Toast.LENGTH_SHORT).show()
+                // 删除后重新加载列表
+                loadPhotos()
+            } else {
+                Toast.makeText(this, "删除失败：${photo.displayName}", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: SecurityException) {
+            Toast.makeText(this, "没有删除权限：${e.message}", Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "删除失败：${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    /**
+     * 分享单张照片或视频
+     */
+    private fun shareSinglePhoto(photo: PhotoItem) {
+        try {
+            val uri = Uri.parse(photo.uri)
+            val mimeType = when (photo.mediaType) {
+                PhotoItem.MediaType.VIDEO -> "video/*"
+                PhotoItem.MediaType.IMAGE -> "image/*"
+            }
+
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = mimeType
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            startActivity(Intent.createChooser(shareIntent, "分享媒体"))
+        } catch (e: Exception) {
+            Toast.makeText(this, "分享失败：${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 }
