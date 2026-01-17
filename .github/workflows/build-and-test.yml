@@ -33,7 +33,6 @@ jobs:
         if [ -f gradle/wrapper/gradle-wrapper.jar ]; then
           SIZE=$(stat -c%s gradle/wrapper/gradle-wrapper.jar 2>/dev/null || echo 0)
           echo "文件大小: ${SIZE} 字节"
-          echo "42KB 左右是正常大小（官方范围 40-45 KB）"
           echo "✅ 文件存在，继续构建..."
         else
           echo "错误: gradle-wrapper.jar 文件不存在"
