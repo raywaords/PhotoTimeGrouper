@@ -1,0 +1,8 @@
+# 确保 wrapper jar 被当作二进制文件处理
+# 防止 Git 在提交时修改文件内容（如行结束符转换）
+gradle/wrapper/gradle-wrapper.jar binary
+
+# 其他二进制文件
+*.jar binary
+*.apk binary
+*.aab binary

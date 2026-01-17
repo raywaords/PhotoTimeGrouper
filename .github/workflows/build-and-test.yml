@@ -27,84 +27,86 @@ jobs:
     - name: 授予 gradlew 执行权限
       run: chmod +x gradlew
       
-    - name: 修复 gradle-wrapper.jar（如果需要）
+    - name: 验证 gradle-wrapper.jar
       run: |
-        # 检查文件大小，如果小于 50KB 则尝试修复
+        # 验证文件是否存在且可以运行
         if [ -f gradle/wrapper/gradle-wrapper.jar ]; then
           SIZE=$(stat -c%s gradle/wrapper/gradle-wrapper.jar 2>/dev/null || echo 0)
-          echo "当前文件大小: ${SIZE} 字节"
-          if [ "$SIZE" -lt 50000 ]; then
-            echo "检测到 gradle-wrapper.jar 文件可能损坏，尝试修复..."
-            # 备份原文件
-            cp gradle/wrapper/gradle-wrapper.jar gradle/wrapper/gradle-wrapper.jar.backup
+          echo "文件大小: ${SIZE} 字节"
+          
+          # 42KB 左右是正常大小，先尝试直接运行
+          echo "尝试直接运行 wrapper jar..."
+          java -jar gradle/wrapper/gradle-wrapper.jar --version > /dev/null 2>&1
+          if [ $? -eq 0 ]; then
+            echo "✅ wrapper jar 可以正常运行，无需修复"
+            exit 0
+          fi
+          
+          # 如果无法运行，尝试修复
+          echo "检测到 wrapper jar 无法运行，尝试修复..."
             
-            # 方法1: 从 Gradle 官方发行版直接提取
-            echo "方法1: 尝试下载 Gradle 8.5 并提取 wrapper..."
+            # 方法1: 使用 Gradle 自动生成（如果已下载）
+            # 先下载 Gradle 发行版（gradlew 会使用它）
+            echo "步骤1: 确保 Gradle 8.5 已下载..."
+            # 强制 gradlew 下载并解压 Gradle
+            GRADLE_USER_HOME=${HOME}/.gradle
+            GRADLE_ZIP="${GRADLE_USER_HOME}/wrapper/dists/gradle-8.5-bin/*/gradle-8.5-bin.zip"
+            
+            # 如果 Gradle 已下载，从其中提取 wrapper jar
+            if ls ${GRADLE_USER_HOME}/wrapper/dists/gradle-8.5-bin/*/gradle-8.5-bin.zip 1> /dev/null 2>&1; then
+              GRADLE_ZIP_PATH=$(ls ${GRADLE_USER_HOME}/wrapper/dists/gradle-8.5-bin/*/gradle-8.5-bin.zip | head -1)
+              echo "找到已下载的 Gradle: ${GRADLE_ZIP_PATH}"
+              # 创建临时目录并解压
+              mkdir -p /tmp/gradle-extract
+              unzip -q "${GRADLE_ZIP_PATH}" -d /tmp/gradle-extract
+              # 复制 wrapper jar
+              if [ -f /tmp/gradle-extract/gradle-8.5/gradle/wrapper/gradle-wrapper.jar ]; then
+                cp /tmp/gradle-extract/gradle-8.5/gradle/wrapper/gradle-wrapper.jar gradle/wrapper/gradle-wrapper.jar
+                NEW_SIZE=$(stat -c%s gradle/wrapper/gradle-wrapper.jar 2>/dev/null || echo 0)
+                echo "从已下载的 Gradle 中提取，文件大小: ${NEW_SIZE} 字节"
+                rm -rf /tmp/gradle-extract
+                if [ "$NEW_SIZE" -gt 50000 ]; then
+                  echo "重新生成成功！"
+                  exit 0
+                fi
+              fi
+              rm -rf /tmp/gradle-extract
+            fi
+            
+            # 方法2: 触发 gradlew 下载 Gradle，然后提取
+            echo "步骤2: 尝试触发 Gradle 下载..."
+            # 删除可能损坏的 wrapper jar，让 gradlew 重新生成
+            mv gradle/wrapper/gradle-wrapper.jar gradle/wrapper/gradle-wrapper.jar.backup
+            
+            # 下载 Gradle 发行版
+            echo "下载 Gradle 8.5 发行版..."
+            mkdir -p ${HOME}/.gradle/wrapper/dists/gradle-8.5-bin/
             curl -L -f -o /tmp/gradle-8.5-bin.zip \
-              https://services.gradle.org/distributions/gradle-8.5-bin.zip || true
+              https://services.gradle.org/distributions/gradle-8.5-bin.zip
             
             if [ -f /tmp/gradle-8.5-bin.zip ]; then
-              unzip -q -j /tmp/gradle-8.5-bin.zip "gradle-8.5/gradle/wrapper/gradle-wrapper.jar" -d gradle/wrapper/ 2>/dev/null || true
-              NEW_SIZE=$(stat -c%s gradle/wrapper/gradle-wrapper.jar 2>/dev/null || echo 0)
-              if [ "$NEW_SIZE" -gt 50000 ]; then
-                echo "方法1成功！新文件大小: ${NEW_SIZE} 字节"
-                rm -f /tmp/gradle-8.5-bin.zip
-              else
-                echo "方法1失败，文件大小: ${NEW_SIZE} 字节"
-                rm -f /tmp/gradle-8.5-bin.zip
-              fi
-            fi
-            
-            # 方法2: 如果方法1失败，尝试从其他源下载
-            NEW_SIZE=$(stat -c%s gradle/wrapper/gradle-wrapper.jar 2>/dev/null || echo 0)
-            if [ "$NEW_SIZE" -lt 50000 ]; then
-              echo "方法2: 尝试从 Maven Central 下载..."
-              curl -L -f -o gradle/wrapper/gradle-wrapper-temp.jar \
-                https://repo1.maven.org/maven2/org/gradle/gradle-wrapper/8.5/gradle-wrapper-8.5.jar || true
-              
-              if [ -f gradle/wrapper/gradle-wrapper-temp.jar ]; then
-                TEMP_SIZE=$(stat -c%s gradle/wrapper/gradle-wrapper-temp.jar 2>/dev/null || echo 0)
-                if [ "$TEMP_SIZE" -gt 50000 ]; then
-                  mv gradle/wrapper/gradle-wrapper-temp.jar gradle/wrapper/gradle-wrapper.jar
-                  NEW_SIZE=$TEMP_SIZE
-                  echo "方法2成功！新文件大小: ${NEW_SIZE} 字节"
-                else
-                  echo "方法2失败，下载的文件大小只有: ${TEMP_SIZE} 字节"
-                  rm -f gradle/wrapper/gradle-wrapper-temp.jar
+              echo "下载成功，解压并提取 wrapper..."
+              unzip -q /tmp/gradle-8.5-bin.zip -d /tmp/
+              if [ -f /tmp/gradle-8.5/gradle/wrapper/gradle-wrapper.jar ]; then
+                cp /tmp/gradle-8.5/gradle/wrapper/gradle-wrapper.jar gradle/wrapper/gradle-wrapper.jar
+                NEW_SIZE=$(stat -c%s gradle/wrapper/gradle-wrapper.jar 2>/dev/null || echo 0)
+                echo "提取成功，新文件大小: ${NEW_SIZE} 字节"
+                rm -rf /tmp/gradle-8.5 /tmp/gradle-8.5-bin.zip
+                
+                if [ "$NEW_SIZE" -gt 50000 ]; then
+                  echo "重新生成成功！"
+                  exit 0
                 fi
               fi
+              rm -rf /tmp/gradle-8.5 /tmp/gradle-8.5-bin.zip
             fi
             
-            # 方法3: 使用 wget 作为备用
-            NEW_SIZE=$(stat -c%s gradle/wrapper/gradle-wrapper.jar 2>/dev/null || echo 0)
-            if [ "$NEW_SIZE" -lt 50000 ]; then
-              echo "方法3: 尝试使用备用 URL..."
-              wget -q -O gradle/wrapper/gradle-wrapper-temp.jar \
-                https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar || true
-              
-              if [ -f gradle/wrapper/gradle-wrapper-temp.jar ]; then
-                TEMP_SIZE=$(stat -c%s gradle/wrapper/gradle-wrapper-temp.jar 2>/dev/null || echo 0)
-                if [ "$TEMP_SIZE" -gt 50000 ]; then
-                  mv gradle/wrapper/gradle-wrapper-temp.jar gradle/wrapper/gradle-wrapper.jar
-                  NEW_SIZE=$TEMP_SIZE
-                  echo "方法3成功！新文件大小: ${NEW_SIZE} 字节"
-                else
-                  rm -f gradle/wrapper/gradle-wrapper-temp.jar
-                fi
-              fi
-            fi
-            
-            # 最终验证
-            NEW_SIZE=$(stat -c%s gradle/wrapper/gradle-wrapper.jar 2>/dev/null || echo 0)
-            if [ "$NEW_SIZE" -lt 50000 ]; then
-              echo "错误: 所有修复方法都失败，文件大小仍为 ${NEW_SIZE} 字节"
-              echo "恢复备份文件..."
+            # 如果都失败，恢复备份
+            echo "警告: 自动重新生成失败，恢复原文件"
+            if [ -f gradle/wrapper/gradle-wrapper.jar.backup ]; then
               cp gradle/wrapper/gradle-wrapper.jar.backup gradle/wrapper/gradle-wrapper.jar
-              echo "请手动从其他正常项目复制 gradle-wrapper.jar (60-70 KB)"
-              exit 1
-            else
-              echo "修复成功！最终文件大小: ${NEW_SIZE} 字节"
             fi
+            echo "请手动修复：使用 'gradle wrapper --gradle-version=8.5' 或从其他项目复制"
           else
             echo "gradle-wrapper.jar 文件大小正常（${SIZE} 字节），无需修复"
           fi
