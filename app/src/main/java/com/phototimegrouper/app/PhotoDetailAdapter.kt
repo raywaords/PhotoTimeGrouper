@@ -3,7 +3,6 @@ package com.phototimegrouper.app
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.view.LayoutInflater
-import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ProgressBar
@@ -18,6 +17,10 @@ import com.bumptech.glide.request.RequestOptions
 import com.bumptech.glide.request.target.Target
 import com.github.chrisbanes.photoview.PhotoView
 
+/**
+ * 照片详情页 ViewPager 适配器
+ * 支持缩放、拖动、单击退出
+ */
 class PhotoDetailAdapter(
     private val photoList: List<PhotoItem>,
     private val viewPager2: ViewPager2,
@@ -25,28 +28,26 @@ class PhotoDetailAdapter(
 ) : RecyclerView.Adapter<PhotoDetailAdapter.PhotoDetailViewHolder>() {
 
     class PhotoDetailViewHolder(
-        view: View, 
+        view: View,
         viewPager2: ViewPager2,
         onPhotoClick: (() -> Unit)?
     ) : RecyclerView.ViewHolder(view) {
         val photoView: PhotoView = view.findViewById(R.id.photoView)
         val loadingProgressBar: ProgressBar = view.findViewById(R.id.loadingProgressBar)
-        
+
         init {
-            // 解决 PhotoView �?ViewPager2 的触摸冲�?            // 使用自定义的触摸监听器，�?PhotoView 被缩放时禁用 ViewPager2 滑动
-            photoView.setOnScaleChangeListener(object : com.github.chrisbanes.photoview.OnScaleChangedListener {
-                override fun onScaleChange(scaleFactor: Float, focusX: Float, focusY: Float) {
-                    // 如果图片被缩放（scale > 1.0），禁用 ViewPager2 的滑�?                    viewPager2.isUserInputEnabled = scaleFactor <= 1.0f
-                }
-            })
-            
-            // 点击照片：如果已缩放则重置，否则返回
+            // 当图片被放大时，禁用 ViewPager2 滑动，避免冲突
+            photoView.setOnScaleChangeListener { scaleFactor, _, _ ->
+                viewPager2.isUserInputEnabled = scaleFactor <= 1.0f
+            }
+
+            // 单击照片：如果已缩放则重置，否则触发点击回调（退出）
             photoView.setOnPhotoTapListener { _, _, _ ->
                 if (photoView.scale > 1.0f) {
-                    // 如果照片被缩放，重置到原始大�?                    photoView.setScale(1.0f, true)
+                    photoView.setScale(1.0f, true)
                     viewPager2.isUserInputEnabled = true
                 } else {
-                    // 如果照片未缩放，返回主列�?                    onPhotoClick?.invoke()
+                    onPhotoClick?.invoke()
                 }
             }
         }
@@ -60,12 +61,15 @@ class PhotoDetailAdapter(
 
     override fun onBindViewHolder(holder: PhotoDetailViewHolder, position: Int) {
         val photo = photoList.getOrNull(position) ?: return
-        
-        // 清除之前的图�?        Glide.with(holder.itemView.context).clear(holder.photoView)
+
+        // 清除之前的图片
+        Glide.with(holder.itemView.context).clear(holder.photoView)
         holder.loadingProgressBar.visibility = View.VISIBLE
-        
-        // 使用 Glide 加载全尺寸图�?        Glide.with(holder.itemView.context)
-            .load(Uri.parse(photo.uri))
+
+        // 使用 Glide 加载原图
+        val imageUri = Uri.parse(photo.uri)
+        Glide.with(holder.itemView.context)
+            .load(imageUri)
             .apply(
                 RequestOptions()
                     .diskCacheStrategy(DiskCacheStrategy.ALL)
@@ -99,3 +103,4 @@ class PhotoDetailAdapter(
 
     override fun getItemCount(): Int = photoList.size
 }
+
