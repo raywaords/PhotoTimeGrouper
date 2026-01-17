@@ -246,7 +246,7 @@ class MainActivity : AppCompatActivity() {
                         exitSelectionMode()
                         loadPhotos()
                     } else {
-                        Toast.makeText(this@MainActivity, R.string.delete_failed, Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@MainActivity, getString(R.string.delete_failed), Toast.LENGTH_SHORT).show()
                     }
                 }
             } catch (e: Exception) {
