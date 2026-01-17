@@ -38,27 +38,72 @@ jobs:
             # 备份原文件
             cp gradle/wrapper/gradle-wrapper.jar gradle/wrapper/gradle-wrapper.jar.backup
             
-            # 尝试从多个源下载正确的文件
-            echo "尝试从 GitHub 下载..."
-            curl -L -f -o gradle/wrapper/gradle-wrapper.jar \
-              https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar
+            # 方法1: 从 Gradle 官方发行版直接提取
+            echo "方法1: 尝试下载 Gradle 8.5 并提取 wrapper..."
+            curl -L -f -o /tmp/gradle-8.5-bin.zip \
+              https://services.gradle.org/distributions/gradle-8.5-bin.zip || true
             
-            if [ $? -ne 0 ] || [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
-              echo "GitHub 下载失败，尝试 Maven Central..."
-              curl -L -f -o gradle/wrapper/gradle-wrapper.jar \
-                https://repo.maven.apache.org/maven2/org/gradle/gradle-wrapper/8.5/gradle-wrapper-8.5.jar
+            if [ -f /tmp/gradle-8.5-bin.zip ]; then
+              unzip -q -j /tmp/gradle-8.5-bin.zip "gradle-8.5/gradle/wrapper/gradle-wrapper.jar" -d gradle/wrapper/ 2>/dev/null || true
+              NEW_SIZE=$(stat -c%s gradle/wrapper/gradle-wrapper.jar 2>/dev/null || echo 0)
+              if [ "$NEW_SIZE" -gt 50000 ]; then
+                echo "方法1成功！新文件大小: ${NEW_SIZE} 字节"
+                rm -f /tmp/gradle-8.5-bin.zip
+              else
+                echo "方法1失败，文件大小: ${NEW_SIZE} 字节"
+                rm -f /tmp/gradle-8.5-bin.zip
+              fi
             fi
             
-            if [ -f gradle/wrapper/gradle-wrapper.jar ]; then
-              NEW_SIZE=$(stat -c%s gradle/wrapper/gradle-wrapper.jar 2>/dev/null || echo 0)
-              echo "修复完成，新文件大小: ${NEW_SIZE} 字节"
-              if [ "$NEW_SIZE" -lt 50000 ]; then
-                echo "警告: 下载的文件仍然小于 50KB，可能有问题"
+            # 方法2: 如果方法1失败，尝试从其他源下载
+            NEW_SIZE=$(stat -c%s gradle/wrapper/gradle-wrapper.jar 2>/dev/null || echo 0)
+            if [ "$NEW_SIZE" -lt 50000 ]; then
+              echo "方法2: 尝试从 Maven Central 下载..."
+              curl -L -f -o gradle/wrapper/gradle-wrapper-temp.jar \
+                https://repo1.maven.org/maven2/org/gradle/gradle-wrapper/8.5/gradle-wrapper-8.5.jar || true
+              
+              if [ -f gradle/wrapper/gradle-wrapper-temp.jar ]; then
+                TEMP_SIZE=$(stat -c%s gradle/wrapper/gradle-wrapper-temp.jar 2>/dev/null || echo 0)
+                if [ "$TEMP_SIZE" -gt 50000 ]; then
+                  mv gradle/wrapper/gradle-wrapper-temp.jar gradle/wrapper/gradle-wrapper.jar
+                  NEW_SIZE=$TEMP_SIZE
+                  echo "方法2成功！新文件大小: ${NEW_SIZE} 字节"
+                else
+                  echo "方法2失败，下载的文件大小只有: ${TEMP_SIZE} 字节"
+                  rm -f gradle/wrapper/gradle-wrapper-temp.jar
+                fi
               fi
-            else
-              echo "错误: 无法下载文件，恢复备份"
+            fi
+            
+            # 方法3: 使用 wget 作为备用
+            NEW_SIZE=$(stat -c%s gradle/wrapper/gradle-wrapper.jar 2>/dev/null || echo 0)
+            if [ "$NEW_SIZE" -lt 50000 ]; then
+              echo "方法3: 尝试使用备用 URL..."
+              wget -q -O gradle/wrapper/gradle-wrapper-temp.jar \
+                https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar || true
+              
+              if [ -f gradle/wrapper/gradle-wrapper-temp.jar ]; then
+                TEMP_SIZE=$(stat -c%s gradle/wrapper/gradle-wrapper-temp.jar 2>/dev/null || echo 0)
+                if [ "$TEMP_SIZE" -gt 50000 ]; then
+                  mv gradle/wrapper/gradle-wrapper-temp.jar gradle/wrapper/gradle-wrapper.jar
+                  NEW_SIZE=$TEMP_SIZE
+                  echo "方法3成功！新文件大小: ${NEW_SIZE} 字节"
+                else
+                  rm -f gradle/wrapper/gradle-wrapper-temp.jar
+                fi
+              fi
+            fi
+            
+            # 最终验证
+            NEW_SIZE=$(stat -c%s gradle/wrapper/gradle-wrapper.jar 2>/dev/null || echo 0)
+            if [ "$NEW_SIZE" -lt 50000 ]; then
+              echo "错误: 所有修复方法都失败，文件大小仍为 ${NEW_SIZE} 字节"
+              echo "恢复备份文件..."
               cp gradle/wrapper/gradle-wrapper.jar.backup gradle/wrapper/gradle-wrapper.jar
+              echo "请手动从其他正常项目复制 gradle-wrapper.jar (60-70 KB)"
               exit 1
+            else
+              echo "修复成功！最终文件大小: ${NEW_SIZE} 字节"
             fi
           else
             echo "gradle-wrapper.jar 文件大小正常（${SIZE} 字节），无需修复"
