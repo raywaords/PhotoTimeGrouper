@@ -6,12 +6,12 @@ import java.io.IOException
 
 /**
  * 照片元数据加载工具类
- * 用于�?Exif 数据中读取照片的详细信息（如 ISO�?
+ * 用于从 Exif 数据中读取照片的详细信息（如 ISO 等）
  */
 object PhotoMetadataLoader {
     
     /**
-     * 从照�?URI 或文件路径读�?ISO 感光�?
+     * 从照片 URI 或文件路径读取 ISO 感光度
      */
     fun loadIso(context: Context, photoItem: PhotoItem): Int {
         return try {
@@ -27,17 +27,17 @@ object PhotoMetadataLoader {
                 val exif = ExifInterface(stream)
                 val isoString = exif.getAttribute(ExifInterface.TAG_ISO_SPEED_RATINGS)
                 
-                // Exif 中的 ISO 可能是字符串格式 "100" 或数组格�?"100,100"
+                // Exif 中的 ISO 可能是字符串格式 "100" 或数组格式 "100,100"
                 isoString?.split(",")?.firstOrNull()?.toIntOrNull() ?: 0
             } ?: 0
         } catch (e: Exception) {
-            // 如果读取失败，返�?0
+            // 如果读取失败，返回 0
             0
         }
     }
     
     /**
-     * 从照�?URI 或文件路径读取更�?Exif 信息
+     * 从照片 URI 或文件路径读取更多 Exif 信息
      */
     fun loadExifInfo(context: Context, photoItem: PhotoItem): Map<String, String> {
         val exifInfo = mutableMapOf<String, String>()
@@ -72,9 +72,10 @@ object PhotoMetadataLoader {
                     val exposure = it.toDoubleOrNull()
                     if (exposure != null && exposure > 0) {
                         exifInfo["曝光时间"] = if (exposure >= 1) {
-                            "${exposure.toInt()}�?
+                            "${exposure.toInt()}秒"
                         } else {
-                            "1/${(1.0 / exposure).toInt()}�?
+                            val denominator = (1.0 / exposure).toInt()
+                            "1/$denominator秒"
                         }
                     } else {
                         exifInfo["曝光时间"] = it
