@@ -51,14 +51,11 @@ jobs:
       
     - name: 运行单元测试
       run: |
-        ./gradlew test --no-daemon
+        ./gradlew testDebugUnitTest --no-daemon
         echo "测试任务执行完成，检查测试结果..."
-        if [ -d app/build/test-results/test ]; then
-          echo "测试结果目录存在"
-          ls -la app/build/test-results/test/ || echo "无法列出目录内容"
-        else
-          echo "警告: 测试结果目录不存在"
-        fi
+        echo "检查目录结构..."
+        find app/build/test-results -name "*.xml" -type f 2>/dev/null | head -5 || echo "未找到测试结果 XML 文件"
+        find app/build/reports/tests -type f 2>/dev/null | head -5 || echo "未找到测试报告文件"
       continue-on-error: true
       
     - name: 生成测试覆盖率报告
@@ -79,9 +76,10 @@ jobs:
       with:
         name: test-reports
         path: |
-          app/build/reports/tests/test/
-          app/build/test-results/test/
+          app/build/reports/tests/testDebugUnitTest/
+          app/build/test-results/testDebugUnitTest/
         retention-days: 7
+        if-no-files-found: warn
         
     - name: 上传覆盖率报告
       if: always()
@@ -96,14 +94,14 @@ jobs:
       if: always()
       run: |
         echo "## 测试结果摘要" >> $GITHUB_STEP_SUMMARY
-        if ls app/build/test-results/test/TEST-*.xml 1> /dev/null 2>&1; then
+        if ls app/build/test-results/testDebugUnitTest/TEST-*.xml 1> /dev/null 2>&1; then
           echo "✅ 测试已完成" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 测试文件列表" >> $GITHUB_STEP_SUMMARY
-          ls -la app/build/test-results/test/TEST-*.xml | awk '{print "- " $9}' >> $GITHUB_STEP_SUMMARY
+          ls -la app/build/test-results/testDebugUnitTest/TEST-*.xml | awk '{print "- " $9}' >> $GITHUB_STEP_SUMMARY
         else
           echo "⚠️ 未找到测试结果" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "检查测试目录:" >> $GITHUB_STEP_SUMMARY
-          ls -la app/build/test-results/test/ 2>&1 || echo "目录不存在" >> $GITHUB_STEP_SUMMARY
+          find app/build/test-results -type f -name "*.xml" 2>/dev/null | head -5 || echo "未找到测试结果文件" >> $GITHUB_STEP_SUMMARY
         fi
