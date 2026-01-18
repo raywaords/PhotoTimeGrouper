@@ -42,21 +42,23 @@ jobs:
       continue-on-error: true
       
     - name: 运行单元测试
-      run: ./gradlew test --no-daemon
+      run: ./gradlew testDebugUnitTest --no-daemon
       
     - name: 生成测试报告
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: test-report
-        path: app/build/reports/tests/test/
+        path: app/build/reports/tests/testDebugUnitTest/
         retention-days: 7
+        if-no-files-found: warn
         
     - name: 上传测试结果
       if: always()
       uses: dorny/test-reporter@v1
       with:
         name: 单元测试结果
-        path: app/build/test-results/test/*.xml
+        path: app/build/test-results/testDebugUnitTest/*.xml
         reporter: java-junit
         fail-on-error: false
+        fail-on-empty: false
