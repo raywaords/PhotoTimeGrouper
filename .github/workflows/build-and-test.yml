@@ -47,7 +47,7 @@ jobs:
           echo "=== 编译错误详情 ==="
           grep -A 5 -B 5 "error\|Error\|Unresolved\|Expecting" build.log || cat build.log
           exit 1
-        fi --info 2>&1 | tee build.log || (cat build.log && exit 1)
+        fi
       
     - name: 运行单元测试
       run: ./gradlew test --no-daemon
