@@ -50,7 +50,15 @@ jobs:
         fi
       
     - name: 运行单元测试
-      run: ./gradlew test --no-daemon
+      run: |
+        ./gradlew test --no-daemon
+        echo "测试任务执行完成，检查测试结果..."
+        if [ -d app/build/test-results/test ]; then
+          echo "测试结果目录存在"
+          ls -la app/build/test-results/test/ || echo "无法列出目录内容"
+        else
+          echo "警告: 测试结果目录不存在"
+        fi
       continue-on-error: true
       
     - name: 生成测试覆盖率报告
@@ -88,8 +96,14 @@ jobs:
       if: always()
       run: |
         echo "## 测试结果摘要" >> $GITHUB_STEP_SUMMARY
-        if [ -f app/build/test-results/test/TEST-*.xml ]; then
+        if ls app/build/test-results/test/TEST-*.xml 1> /dev/null 2>&1; then
           echo "✅ 测试已完成" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 测试文件列表" >> $GITHUB_STEP_SUMMARY
+          ls -la app/build/test-results/test/TEST-*.xml | awk '{print "- " $9}' >> $GITHUB_STEP_SUMMARY
         else
           echo "⚠️ 未找到测试结果" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "检查测试目录:" >> $GITHUB_STEP_SUMMARY
+          ls -la app/build/test-results/test/ 2>&1 || echo "目录不存在" >> $GITHUB_STEP_SUMMARY
         fi
