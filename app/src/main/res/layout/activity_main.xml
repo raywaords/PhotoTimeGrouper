@@ -18,6 +18,70 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <!-- 选择模式操作栏 -->
+    <LinearLayout
+        android:id="@+id/selectionActionBar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:background="@color/purple_500"
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/spacing_16"
+        android:paddingEnd="@dimen/spacing_16"
+        android:paddingTop="@dimen/spacing_12"
+        android:paddingBottom="@dimen/spacing_12"
+        android:elevation="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:id="@+id/selectedCountTextView"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textColor="@android:color/white"
+            android:textSize="@dimen/text_size_16"
+            android:textStyle="bold"
+            android:gravity="center_vertical" />
+
+        <Button
+            android:id="@+id/selectAllButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/select_all"
+            android:textColor="@android:color/white"
+            android:backgroundTint="@android:color/transparent"
+            android:layout_marginEnd="@dimen/spacing_8" />
+
+        <Button
+            android:id="@+id/shareButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/share"
+            android:textColor="@android:color/white"
+            android:backgroundTint="@android:color/transparent"
+            android:layout_marginEnd="@dimen/spacing_8" />
+
+        <Button
+            android:id="@+id/deleteButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/delete"
+            android:textColor="@android:color/white"
+            android:backgroundTint="@android:color/transparent"
+            android:layout_marginEnd="@dimen/spacing_8" />
+
+        <Button
+            android:id="@+id/cancelSelectionButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/cancel"
+            android:textColor="@android:color/white"
+            android:backgroundTint="@android:color/transparent" />
+
+    </LinearLayout>
+
     <ImageButton
         android:id="@+id/viewModeMenuButton"
         android:layout_width="48dp"
@@ -39,7 +103,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        app:layout_constraintTop_toBottomOf="@id/selectionActionBar">
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/recyclerView"

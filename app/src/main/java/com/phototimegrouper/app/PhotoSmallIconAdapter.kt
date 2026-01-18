@@ -16,24 +16,29 @@ import com.bumptech.glide.request.RequestOptions
  * 小图标适配器（九宫格形式）
  * 在当天单元格内显示，3列网格布局，使用缩略图
  * 如果照片少于9张，单元格自动收缩，不留空白
- * 如果照片超过9张，显示多行，可通过垂直滚动查看所有照�?
+ * 如果照片超过9张，显示多行，可通过垂直滚动查看所有照�?
  * 支持视频自动静默播放预览
  */
 class PhotoSmallIconAdapter(
     private val context: Context,
     private val photoList: List<PhotoItem>,
-    private val onPhotoClick: ((Int) -> Unit)? = null
+    private val isSelectionMode: (() -> Boolean)? = null,
+    private val isPhotoSelected: ((Long) -> Boolean)? = null,
+    private val onPhotoClick: ((Int) -> Unit)? = null,
+    private val onPhotoLongClick: ((Int) -> Unit)? = null
 ) : RecyclerView.Adapter<PhotoSmallIconAdapter.PhotoSmallIconViewHolder>() {
 
-    // 当前正在播放的视频位�?
+    // 当前正在播放的视频位�?
     private var currentPlayingPosition: Int = -1
-    // 存储所�?ViewHolder，用于可见性检�?
+    // 存储所�?ViewHolder，用于可见性检�?
     private val viewHolders = mutableMapOf<Int, PhotoSmallIconViewHolder>()
 
     class PhotoSmallIconViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val imageView: ImageView = view.findViewById(R.id.photoImageView)
         val videoPlayIcon: ImageView = view.findViewById(R.id.videoPlayIcon)
         val videoView: VideoView = view.findViewById(R.id.videoView)
+        val checkMark: ImageView = view.findViewById(R.id.checkMark)
+        val selectionOverlay: View = view.findViewById(R.id.selectionOverlay)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PhotoSmallIconViewHolder {
@@ -47,7 +52,7 @@ class PhotoSmallIconAdapter(
         // 存储 ViewHolder 引用
         viewHolders[position] = holder
 
-        // 先重置所有视图状态，避免复用 ViewHolder 时的状态混�?
+        // 先重置所有视图状态，避免复用 ViewHolder 时的状态混�?
         // 注意：必须在任何条件判断之前重置，确保状态干净
         holder.imageView.visibility = View.VISIBLE
         holder.videoView.visibility = View.GONE
@@ -60,15 +65,15 @@ class PhotoSmallIconAdapter(
             // 忽略错误
         }
 
-        // 计算图片尺寸（保持正方形�?
+        // 计算图片尺寸（保持正方形�?
         // GridLayoutManager会自动计算item宽度，我们需要让高度等于宽度
         val screenWidth = context.resources.displayMetrics.widthPixels
         val padding = context.resources.getDimensionPixelSize(R.dimen.spacing_16) * 2 // 左右padding
         val margins = context.resources.getDimensionPixelSize(R.dimen.spacing_4) * 2 * 3 // 3列，每列左右margin
         val itemWidth = (screenWidth - padding - margins) / 3
-        val imageHeight = itemWidth // 保持正方�?
+        val imageHeight = itemWidth // 保持正方�?
 
-        // 设置图片和视频高度（宽度由GridLayoutManager自动计算�?
+        // 设置图片和视频高度（宽度由GridLayoutManager自动计算�?
         val layoutParams = holder.imageView.layoutParams
         layoutParams.height = imageHeight
         holder.imageView.layoutParams = layoutParams
@@ -78,7 +83,7 @@ class PhotoSmallIconAdapter(
         val isVideo = photo.mediaType == PhotoItem.MediaType.VIDEO
         
         if (isVideo) {
-            // 视频：先加载缩略图作为封�?
+            // 视频：先加载缩略图作为封�?
             holder.imageView.visibility = View.VISIBLE
             holder.videoView.visibility = View.GONE
             holder.videoPlayIcon.visibility = View.VISIBLE
@@ -100,13 +105,13 @@ class PhotoSmallIconAdapter(
             // 设置视频 URI
             holder.videoView.setVideoURI(Uri.parse(photo.uri))
             holder.videoView.setOnPreparedListener { mediaPlayer ->
-                // 再次检�?mediaType，确�?ViewHolder 没有被复用为图片
+                // 再次检�?mediaType，确�?ViewHolder 没有被复用为图片
                 val currentPhoto = photoList.getOrNull(position)
                 if (currentPhoto?.mediaType == PhotoItem.MediaType.VIDEO) {
                     mediaPlayer.isLooping = true
                     mediaPlayer.setVolume(0f, 0f) // 静音播放
                     
-                    // 设置视频缩放模式�?SCALE_MODE_SCALE_TO_FIT_WITH_CROPPING (类似centerCrop)
+                    // 设置视频缩放模式�?SCALE_MODE_SCALE_TO_FIT_WITH_CROPPING (类似centerCrop)
                     try {
                         val method = mediaPlayer.javaClass.getMethod("setVideoScalingMode", Int::class.java)
                         method.invoke(mediaPlayer, 2) // 2 = SCALE_MODE_SCALE_TO_FIT_WITH_CROPPING
@@ -118,7 +123,7 @@ class PhotoSmallIconAdapter(
                         }
                     }
                     
-                    // 准备完成后，延迟检查可见性（确保布局完成�?
+                    // 准备完成后，延迟检查可见性（确保布局完成�?
                     holder.itemView.postDelayed({
                         val currentPhoto2 = photoList.getOrNull(position)
                         if (currentPhoto2?.mediaType == PhotoItem.MediaType.VIDEO && isViewHolderVisible(holder)) {
@@ -126,18 +131,18 @@ class PhotoSmallIconAdapter(
                         }
                     }, 100)
                 } else {
-                    // 如果是图片，确保不显示播放图�?
+                    // 如果是图片，确保不显示播放图�?
                     holder.videoPlayIcon.visibility = View.GONE
                     holder.videoView.visibility = View.GONE
                     holder.imageView.visibility = View.VISIBLE
                 }
             }
         } else {
-            // 图片：显�?ImageView，隐�?VideoView 和播放图�?
-            // 注意：不调用 stopVideoPlayback()，因为它可能会显示播放图�?
+            // 图片：显�?ImageView，隐�?VideoView 和播放图�?
+            // 注意：不调用 stopVideoPlayback()，因为它可能会显示播放图�?
             holder.imageView.visibility = View.VISIBLE
             holder.videoView.visibility = View.GONE
-            holder.videoPlayIcon.visibility = View.GONE // 确保图片不显示播放图�?
+            holder.videoPlayIcon.visibility = View.GONE // 确保图片不显示播放图�?
             
             // 直接停止 VideoView，不调用 stopVideoPlayback()（避免显示播放图标）
             try {
@@ -161,36 +166,40 @@ class PhotoSmallIconAdapter(
                 .into(holder.imageView)
         }
 
-        // 最后再次确认状态（关键修复：确保图片不显示播放图标�?
-        // 在绑定完成后，强制检�?mediaType，确保状态正�?
+        // 最后再次确认状态（关键修复：确保图片不显示播放图标�?
+        // 在绑定完成后，强制检�?mediaType，确保状态正�?
         if (photo.mediaType == PhotoItem.MediaType.IMAGE) {
             holder.videoPlayIcon.visibility = View.GONE
             holder.videoView.visibility = View.GONE
             holder.imageView.visibility = View.VISIBLE
         }
 
-        // 最后再次确认状态（关键修复：确保图片不显示播放图标�?
-        // 在绑定完成后，强制检�?mediaType，确保状态正�?
-        if (photo.mediaType == PhotoItem.MediaType.IMAGE) {
-            holder.videoPlayIcon.visibility = View.GONE
-            holder.videoView.visibility = View.GONE
-            holder.imageView.visibility = View.VISIBLE
+        // 更新选择状态显示
+        val inSelectionMode = isSelectionMode?.invoke() ?: false
+        val isSelected = isPhotoSelected?.invoke(photo.id) ?: false
+        
+        if (inSelectionMode) {
+            holder.checkMark.visibility = if (isSelected) View.VISIBLE else View.GONE
+            holder.selectionOverlay.visibility = if (isSelected) View.VISIBLE else View.GONE
+        } else {
+            holder.checkMark.visibility = View.GONE
+            holder.selectionOverlay.visibility = View.GONE
         }
 
-        // 添加点击事件
+        // 添加点击事件：单击预览
         holder.itemView.setOnClickListener {
-            if (isVideo) {
-                // 视频点击：使用系统播放器
-                onPhotoClick?.invoke(position)
-            } else {
-                // 图片点击：打开详情�?
-                onPhotoClick?.invoke(position)
-            }
+            onPhotoClick?.invoke(position)
+        }
+
+        // 长按：弹出操作菜单（删除 / 分享）
+        holder.itemView.setOnLongClickListener {
+            onPhotoLongClick?.invoke(position)
+            true
         }
     }
     
     /**
-     * 检�?ViewHolder 是否可见
+     * 检�?ViewHolder 是否可见
      */
     private fun isViewHolderVisible(holder: PhotoSmallIconViewHolder): Boolean {
         val view = holder.itemView
@@ -199,18 +208,18 @@ class PhotoSmallIconAdapter(
         }
         val rect = android.graphics.Rect()
         val visible = view.getGlobalVisibleRect(rect)
-        // 至少 50% 可见才认为是可见�?
+        // 至少 50% 可见才认为是可见�?
         val visibleArea = rect.width() * rect.height()
         val totalArea = view.width * view.height
         return visible && totalArea > 0 && (visibleArea.toFloat() / totalArea) > 0.5f
     }
     
     /**
-     * 开始视频播�?
+     * 开始视频播�?
      */
     private fun startVideoPlayback(holder: PhotoSmallIconViewHolder, position: Int) {
         if (currentPlayingPosition != position) {
-            // 停止之前播放的视�?
+            // 停止之前播放的视�?
             if (currentPlayingPosition != -1) {
                 val prevHolder = viewHolders[currentPlayingPosition]
                 prevHolder?.let { stopVideoPlayback(it) }
@@ -219,23 +228,23 @@ class PhotoSmallIconAdapter(
         }
         
         try {
-            // 确保 VideoView 的布局参数正确，填充整个容�?
+            // 确保 VideoView 的布局参数正确，填充整个容�?
             holder.videoView.layoutParams.apply {
                 width = android.view.ViewGroup.LayoutParams.MATCH_PARENT
                 height = android.view.ViewGroup.LayoutParams.MATCH_PARENT
             }
             
-            // 显示 VideoView，隐藏缩略图和播放图�?
+            // 显示 VideoView，隐藏缩略图和播放图�?
             holder.imageView.visibility = View.GONE
             holder.videoView.visibility = View.VISIBLE
-            holder.videoPlayIcon.visibility = View.GONE // 播放时隐藏播放图�?
+            holder.videoPlayIcon.visibility = View.GONE // 播放时隐藏播放图�?
             
-            // 确保视频开始播�?
+            // 确保视频开始播�?
             if (!holder.videoView.isPlaying) {
                 holder.videoView.start()
             }
             
-            // 再次尝试设置缩放模式（在播放开始后�?
+            // 再次尝试设置缩放模式（在播放开始后�?
             holder.videoView.setOnPreparedListener { mediaPlayer ->
                 try {
                     val method = mediaPlayer.javaClass.getMethod("setVideoScalingMode", Int::class.java)
@@ -245,7 +254,7 @@ class PhotoSmallIconAdapter(
                 }
             }
         } catch (e: Exception) {
-            // 播放失败时忽�?
+            // 播放失败时忽�?
         }
     }
     
@@ -259,7 +268,7 @@ class PhotoSmallIconAdapter(
             }
             holder.videoView.stopPlayback()
             
-            // 检查当�?holder 对应�?photo 是否为视�?
+            // 检查当�?holder 对应�?photo 是否为视�?
             val position = holder.bindingAdapterPosition
             val photo = if (position != RecyclerView.NO_POSITION) {
                 photoList.getOrNull(position)
@@ -267,12 +276,12 @@ class PhotoSmallIconAdapter(
                 null
             }
             
-            // 只有视频才显示播放图�?
+            // 只有视频才显示播放图�?
             if (photo?.mediaType == PhotoItem.MediaType.VIDEO) {
-                // 停止播放时，显示缩略图和播放图标，隐�?VideoView
+                // 停止播放时，显示缩略图和播放图标，隐�?VideoView
                 holder.imageView.visibility = View.VISIBLE
                 holder.videoView.visibility = View.GONE
-                holder.videoPlayIcon.visibility = View.VISIBLE // 停止时显示播放图�?
+                holder.videoPlayIcon.visibility = View.VISIBLE // 停止时显示播放图�?
             } else {
                 // 图片：确保不显示播放图标
                 holder.imageView.visibility = View.VISIBLE
@@ -286,7 +295,7 @@ class PhotoSmallIconAdapter(
     
     override fun onViewRecycled(holder: PhotoSmallIconViewHolder) {
         super.onViewRecycled(holder)
-        // 回收时停止视频播�?
+        // 回收时停止视频播�?
         stopVideoPlayback(holder)
         val position = holder.bindingAdapterPosition
         if (position != RecyclerView.NO_POSITION) {
@@ -303,22 +312,22 @@ class PhotoSmallIconAdapter(
         if (position != RecyclerView.NO_POSITION) {
             val photo = photoList.getOrNull(position)
             if (photo != null) {
-                // 确保 ViewHolder 被存�?
+                // 确保 ViewHolder 被存�?
                 viewHolders[position] = holder
                 
-                // 如果是图片，确保不显示播放图�?
+                // 如果是图片，确保不显示播放图�?
                 if (photo.mediaType == PhotoItem.MediaType.IMAGE) {
                     holder.videoPlayIcon.visibility = View.GONE
                     holder.videoView.visibility = View.GONE
                     holder.imageView.visibility = View.VISIBLE
                 } else if (photo.mediaType == PhotoItem.MediaType.VIDEO) {
-                    // 视频：延迟检查可见性并自动播放（允许替换当前播放的视频�?
+                    // 视频：延迟检查可见性并自动播放（允许替换当前播放的视频�?
                     holder.itemView.postDelayed({
                         val currentPhoto = photoList.getOrNull(position)
                         if (currentPhoto?.mediaType == PhotoItem.MediaType.VIDEO && isViewHolderVisible(holder)) {
-                            // 检查是否需要播放（如果当前没有播放，或者这个视频可见度更高�?
+                            // 检查是否需要播放（如果当前没有播放，或者这个视频可见度更高�?
                             if (currentPlayingPosition == -1 || position != currentPlayingPosition) {
-                                checkVisibleItems() // 重新检查所有可见项，选择最佳视�?
+                                checkVisibleItems() // 重新检查所有可见项，选择最佳视�?
                             }
                         }
                     }, 150)
@@ -344,7 +353,7 @@ class PhotoSmallIconAdapter(
             currentHolder?.let { stopVideoPlayback(it) }
         }
         
-        // 获取 RecyclerView 的父视图（通过第一�?ViewHolder 获取�?
+        // 获取 RecyclerView 的父视图（通过第一�?ViewHolder 获取�?
         val recyclerView = viewHolders.values.firstOrNull()?.itemView?.parent as? RecyclerView ?: return
         
         var bestVisiblePosition = -1
@@ -360,10 +369,10 @@ class PhotoSmallIconAdapter(
             val photo = photoList.getOrNull(position) ?: continue
             val holder = recyclerView.getChildViewHolder(child) as? PhotoSmallIconViewHolder ?: continue
             
-            // 确保 ViewHolder 被存�?
+            // 确保 ViewHolder 被存�?
             viewHolders[position] = holder
             
-            // 如果是图片，确保不显示播放图�?
+            // 如果是图片，确保不显示播放图�?
             if (photo.mediaType == PhotoItem.MediaType.IMAGE) {
                 holder.videoPlayIcon.visibility = View.GONE
                 holder.videoView.visibility = View.GONE
@@ -374,7 +383,7 @@ class PhotoSmallIconAdapter(
                     // 忽略错误
                 }
             } else if (photo.mediaType == PhotoItem.MediaType.VIDEO) {
-                // 检查视频是否可�?
+                // 检查视频是否可�?
                 if (isViewHolderVisible(holder)) {
                     val ratio = getVisibilityRatio(holder)
                     if (ratio > bestVisibleRatio) {
@@ -400,7 +409,7 @@ class PhotoSmallIconAdapter(
     }
     
     /**
-     * 获取 ViewHolder 的可见比�?
+     * 获取 ViewHolder 的可见比�?
      */
     private fun getVisibilityRatio(holder: PhotoSmallIconViewHolder): Float {
         val view = holder.itemView

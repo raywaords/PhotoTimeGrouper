@@ -9,34 +9,54 @@
     app:cardElevation="1dp"
     app:cardBackgroundColor="@color/card_background">
 
-    <FrameLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content">
-
-        <ImageView
-            android:id="@+id/photoImageView"
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:scaleType="centerCrop"
-            android:background="@color/surface_variant"
-            android:contentDescription="@string/photo_image" />
+            android:layout_height="wrap_content">
 
-        <VideoView
-            android:id="@+id/videoView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:visibility="gone" />
+            <ImageView
+                android:id="@+id/photoImageView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scaleType="centerCrop"
+                android:background="@color/surface_variant"
+                android:contentDescription="@string/photo_image" />
 
-        <ImageView
-            android:id="@+id/videoPlayIcon"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:layout_gravity="center"
-            android:src="@android:drawable/ic_media_play"
-            android:background="@drawable/video_play_icon_background"
-            android:visibility="gone"
-            android:contentDescription="@string/video_play" />
+            <VideoView
+                android:id="@+id/videoView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone" />
 
-    </FrameLayout>
+            <ImageView
+                android:id="@+id/videoPlayIcon"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_gravity="center"
+                android:src="@android:drawable/ic_media_play"
+                android:background="@drawable/video_play_icon_background"
+                android:visibility="gone"
+                android:contentDescription="@string/video_play" />
+
+            <!-- 选中遮罩 -->
+            <View
+                android:id="@+id/selectionOverlay"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="#8000AA00"
+                android:visibility="gone" />
+
+            <!-- 勾选标记 -->
+            <ImageView
+                android:id="@+id/checkMark"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="top|end"
+                android:layout_margin="4dp"
+                android:src="@android:drawable/checkbox_on_background"
+                android:background="@drawable/check_mark_background"
+                android:visibility="gone"
+                android:contentDescription="已选择" />
+
+        </FrameLayout>
 
 </androidx.cardview.widget.CardView>

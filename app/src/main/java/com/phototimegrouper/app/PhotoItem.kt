@@ -14,10 +14,10 @@ data class PhotoItem(
     val size: Long = 0L,                    // 文件大小（字节）
     val width: Int = 0,                     // 宽度（像素）
     val height: Int = 0,                    // 高度（像素）
-    val mimeType: String = "",              // MIME类型（如 image/jpeg, video/mp4�?
-    val bucketDisplayName: String = "",     // 存储文件夹名称（来源�?
+    val mimeType: String = "",              // MIME类型（如 image/jpeg, video/mp4�?
+    val bucketDisplayName: String = "",     // 存储文件夹名称（来源�?
     val data: String = "",                  // 文件路径
-    val iso: Int = 0,                       // ISO感光�?
+    val iso: Int = 0,                       // ISO感光�?
     val mediaType: MediaType = MediaType.IMAGE  // 媒体类型：图片或视频
 ) : Parcelable {
     
@@ -53,39 +53,46 @@ data class PhotoItem(
     }
     
     /**
-     * 获取照片格式（从MIME类型提取�?
+     * 获取照片格式（从MIME类型提取�?
      */
     fun getFormat(): String {
-        return when {
+        val raw = when {
             mimeType.contains("jpeg", ignoreCase = true) || mimeType.contains("jpg", ignoreCase = true) -> "JPEG"
             mimeType.contains("png", ignoreCase = true) -> "PNG"
             mimeType.contains("gif", ignoreCase = true) -> "GIF"
             mimeType.contains("webp", ignoreCase = true) -> "WebP"
             mimeType.contains("mp4", ignoreCase = true) -> "MP4"
-            mimeType.contains("mov", ignoreCase = true) -> "MOV"
-            mimeType.contains("avi", ignoreCase = true) -> "AVI"
+            mimeType.contains("mov", ignoreCase = true) || mimeType.contains("quicktime", ignoreCase = true) -> "MOV"
+            mimeType.contains("avi", ignoreCase = true) || mimeType.contains("x-msvideo", ignoreCase = true) -> "AVI"
             mimeType.contains("mkv", ignoreCase = true) -> "MKV"
             mimeType.contains("3gp", ignoreCase = true) -> "3GP"
             mimeType.isNotEmpty() -> mimeType.substringAfterLast("/").uppercase()
             else -> "未知"
         }
+        // 防止编码问题导致的乱码字符，强制过滤为可见 ASCII 或常见中文
+        return raw.filter { ch ->
+            // 基本拉丁字母数字和常见标点
+            ch.code in 32..126 ||
+            // 简体中文常用区间
+            ch.code in 0x4E00..0x9FFF
+        }
     }
     
     /**
-     * 判断是否为视�?
-     * 直接使用 mediaType 判断，确保准确�?
+     * 判断是否为视�?
+     * 直接使用 mediaType 判断，确保准确�?
      */
     fun isVideo(): Boolean {
-        // 直接使用 mediaType 判断（最准确，因为数据加载时已经明确设置�?
+        // 直接使用 mediaType 判断（最准确，因为数据加载时已经明确设置�?
         return mediaType == MediaType.VIDEO
     }
     
     /**
-     * 判断是否为图�?
-     * 直接使用 mediaType 判断，确保准确�?
+     * 判断是否为图�?
+     * 直接使用 mediaType 判断，确保准确�?
      */
     fun isImage(): Boolean {
-        // 直接使用 mediaType 判断（最准确，因为数据加载时已经明确设置�?
+        // 直接使用 mediaType 判断（最准确，因为数据加载时已经明确设置�?
         return mediaType == MediaType.IMAGE
     }
 }

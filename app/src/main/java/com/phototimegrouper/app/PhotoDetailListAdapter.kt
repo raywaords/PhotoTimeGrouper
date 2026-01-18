@@ -13,8 +13,8 @@ import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.request.RequestOptions
 
 /**
- * 详情列表模式适配�?
- * 显示照片的缩略图、名称、日期和大小等信�?
+ * 详情列表模式适配器
+ * 显示照片的缩略图、名称、日期和大小等信息
  */
 class PhotoDetailListAdapter(
     private val context: Context,
@@ -45,24 +45,25 @@ class PhotoDetailListAdapter(
         // 设置日期
         holder.dateTextView.text = DateFormatter.formatDateTime(photo.dateModified)
         
-        // 设置文件大小和分辨率
+        // 设置文件大小和分辨率（使用标准乘号，避免显示问题）
+        val resolution = photo.getResolution().replace("×", "x") // 使用标准 x 避免字体问题
         val sizeText = if (photo.size > 0) {
-            "${photo.getFormattedSize()} �?${photo.getResolution()}"
+            "${photo.getFormattedSize()} · $resolution"
         } else {
-            photo.getResolution()
+            resolution
         }
         holder.sizeTextView.text = sizeText
         
-        // 设置文件格式
+        // 设置文件格式（单独显示在右侧）
         holder.formatTextView.text = photo.getFormat()
         
-        // 判断是否为视�?
+        // 判断是否为视频
         val isVideo = photo.isVideo()
         
         // 显示/隐藏视频播放图标
         holder.videoPlayIcon.visibility = if (isVideo) View.VISIBLE else View.GONE
         
-        // 使用 Glide 加载缩略�?
+        // 使用 Glide 加载缩略图
         if (isVideo) {
             // 对于视频，加载视频的第一帧作为缩略图
             Glide.with(context)
@@ -74,11 +75,11 @@ class PhotoDetailListAdapter(
                         .error(R.color.surface_variant)
                         .diskCacheStrategy(DiskCacheStrategy.ALL)
                         .centerCrop()
-                        .override(160, 160) // 缩略图尺�?
+                        .override(160, 160) // 缩略图尺寸
                 )
                 .into(holder.thumbnailImageView)
         } else {
-            // 对于图片，正常加�?
+            // 对于图片，正常加载
             Glide.with(context)
                 .load(Uri.parse(photo.uri))
                 .apply(
@@ -87,7 +88,7 @@ class PhotoDetailListAdapter(
                         .error(R.color.surface_variant)
                         .diskCacheStrategy(DiskCacheStrategy.ALL)
                         .centerCrop()
-                        .override(160, 160) // 缩略图尺�?
+                        .override(160, 160) // 缩略图尺寸
                 )
                 .into(holder.thumbnailImageView)
         }

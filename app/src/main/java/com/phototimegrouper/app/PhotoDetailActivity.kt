@@ -6,8 +6,11 @@ import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import com.phototimegrouper.app.databinding.ActivityPhotoDetailBinding
 
+/**
+ * 照片详情页（全屏查看 + 滑动浏览）
+ */
 class PhotoDetailActivity : AppCompatActivity() {
-    
+
     private lateinit var binding: ActivityPhotoDetailBinding
     private lateinit var photoList: ArrayList<PhotoItem>
     private var currentPosition: Int = 0
@@ -17,10 +20,11 @@ class PhotoDetailActivity : AppCompatActivity() {
         binding = ActivityPhotoDetailBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // 隐藏系统状态栏，实现全屏效�?        hideSystemUI()
+        // 全屏显示，隐藏状态栏和导航栏
+        hideSystemUI()
 
-        // �?Application 类获取照片列表，而不是从 Intent
-        // 避免 TransactionTooLargeException（Intent 数据过大�?        val app = application as? PhotoTimeGrouperApp
+        // 从 Application 中获取完整照片列表（避免通过 Intent 传递大数组）
+        val app = application as? PhotoTimeGrouperApp
         photoList = app?.allPhotosList ?: arrayListOf()
         currentPosition = intent.getIntExtra(EXTRA_CURRENT_POSITION, 0)
 
@@ -41,7 +45,8 @@ class PhotoDetailActivity : AppCompatActivity() {
         binding.viewPager.adapter = adapter
         binding.viewPager.setCurrentItem(currentPosition, false)
 
-        // 监听页面切换，更新照片信�?        binding.viewPager.registerOnPageChangeCallback(object : androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback() {
+        // 监听页面切换，更新照片信息
+        binding.viewPager.registerOnPageChangeCallback(object : androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
                 super.onPageSelected(position)
                 currentPosition = position
@@ -52,7 +57,7 @@ class PhotoDetailActivity : AppCompatActivity() {
 
     private fun updatePhotoInfo(position: Int) {
         val photo = photoList.getOrNull(position) ?: return
-        
+
         binding.photoNameTextView.text = photo.displayName
         binding.photoDateTextView.text = DateFormatter.formatDateTime(photo.dateModified)
         binding.photoIndexTextView.text = "${position + 1} / ${photoList.size}"
@@ -65,14 +70,14 @@ class PhotoDetailActivity : AppCompatActivity() {
             @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility = (
                 View.SYSTEM_UI_FLAG_FULLSCREEN
-                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-            )
+                    or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                )
         }
     }
 
     companion object {
-        // EXTRA_PHOTO_LIST 已不再使用，改为通过 Application 类获�?        // const val EXTRA_PHOTO_LIST = "extra_photo_list"
         const val EXTRA_CURRENT_POSITION = "extra_current_position"
     }
 }
+

@@ -21,14 +21,17 @@ import com.bumptech.glide.request.RequestOptions
 class PhotoGridAdapter(
     private val context: Context,
     private val photoList: List<PhotoItem>,
-    private val spanCount: Int, // 网格列数�? �?3�?
+    private val spanCount: Int, // 网格列数，最多 3 列
     private val photoHeight: Int, // 照片高度
-    private val onPhotoClick: ((Int) -> Unit)? = null
+    private val isSelectionMode: (() -> Boolean)? = null,
+    private val isPhotoSelected: ((Long) -> Boolean)? = null,
+    private val onPhotoClick: ((Int) -> Unit)? = null,
+    private val onPhotoLongClick: ((Int) -> Unit)? = null
 ) : RecyclerView.Adapter<PhotoGridAdapter.PhotoGridViewHolder>() {
 
-    // 当前正在播放的视频位�?
+    // 当前正在播放的视频位�?
     private var currentPlayingPosition: Int = -1
-    // 存储所�?ViewHolder，用于可见性检�?
+    // 存储所�?ViewHolder，用于可见性检�?
     private val viewHolders = mutableMapOf<Int, PhotoGridViewHolder>()
 
     class PhotoGridViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -36,6 +39,8 @@ class PhotoGridAdapter(
         val timestampTextView: TextView = view.findViewById(R.id.timestampTextView)
         val videoPlayIcon: ImageView = view.findViewById(R.id.videoPlayIcon)
         val videoView: VideoView = view.findViewById(R.id.videoView)
+        val checkMark: ImageView = view.findViewById(R.id.checkMark)
+        val selectionOverlay: View = view.findViewById(R.id.selectionOverlay)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PhotoGridViewHolder {
@@ -49,7 +54,7 @@ class PhotoGridAdapter(
         // 存储 ViewHolder 引用
         viewHolders[position] = holder
         
-        // 先重置所有视图状态，避免复用 ViewHolder 时的状态混�?
+        // 先重置所有视图状态，避免复用 ViewHolder 时的状态混�?
         // 注意：必须在任何条件判断之前重置，确保状态干净
         holder.imageView.visibility = View.VISIBLE
         holder.videoView.visibility = View.GONE
@@ -65,7 +70,7 @@ class PhotoGridAdapter(
         // 使用工具类格式化日期
         holder.timestampTextView.text = DateFormatter.formatDateTime(photo.dateModified)
         
-        // 动态设置图片高�?
+        // 动态设置图片高�?
         val layoutParams = holder.imageView.layoutParams
         layoutParams.height = photoHeight
         holder.imageView.layoutParams = layoutParams
@@ -75,7 +80,7 @@ class PhotoGridAdapter(
         val isVideo = photo.mediaType == PhotoItem.MediaType.VIDEO
         
         if (isVideo) {
-            // 视频：先加载缩略图作为封�?
+            // 视频：先加载缩略图作为封�?
             holder.imageView.visibility = View.VISIBLE
             holder.videoView.visibility = View.GONE
             holder.videoPlayIcon.visibility = View.VISIBLE
@@ -96,21 +101,21 @@ class PhotoGridAdapter(
             // 设置视频 URI
             holder.videoView.setVideoURI(Uri.parse(photo.uri))
             holder.videoView.setOnPreparedListener { mediaPlayer ->
-                // 再次检�?mediaType，确�?ViewHolder 没有被复用为图片
+                // 再次检�?mediaType，确�?ViewHolder 没有被复用为图片
                 val currentPhoto = photoList.getOrNull(position)
                 if (currentPhoto?.mediaType == PhotoItem.MediaType.VIDEO) {
                     mediaPlayer.isLooping = true
                     mediaPlayer.setVolume(0f, 0f) // 静音播放
                     
-                    // 设置视频缩放模式�?SCALE_MODE_SCALE_TO_FIT_WITH_CROPPING (类似centerCrop)
+                    // 设置视频缩放模式�?SCALE_MODE_SCALE_TO_FIT_WITH_CROPPING (类似centerCrop)
                     // 使用多种方法确保缩放模式正确设置
                     try {
-                        // 方法1：使用反射设置缩放模�?
+                        // 方法1：使用反射设置缩放模�?
                         val method = mediaPlayer.javaClass.getMethod("setVideoScalingMode", Int::class.java)
                         method.invoke(mediaPlayer, 2) // 2 = SCALE_MODE_SCALE_TO_FIT_WITH_CROPPING
                     } catch (e: Exception) {
                         try {
-                            // 方法2：尝试使�?MediaPlayer �?setVideoScalingMode（如果可用）
+                            // 方法2：尝试使�?MediaPlayer �?setVideoScalingMode（如果可用）
                             val scalingModeClass = Class.forName("android.media.MediaPlayer\$VideoScalingMode")
                             val scaleToFitWithCropping = scalingModeClass.getField("SCALE_MODE_SCALE_TO_FIT_WITH_CROPPING").get(null) as Int
                             val method = mediaPlayer.javaClass.getMethod("setVideoScalingMode", Int::class.java)
@@ -124,7 +129,7 @@ class PhotoGridAdapter(
                         }
                     }
                     
-                    // 准备完成后，延迟检查可见性（确保布局完成�?
+                    // 准备完成后，延迟检查可见性（确保布局完成�?
                     holder.itemView.postDelayed({
                         val currentPhoto2 = photoList.getOrNull(position)
                         if (currentPhoto2?.mediaType == PhotoItem.MediaType.VIDEO && isViewHolderVisible(holder)) {
@@ -132,7 +137,7 @@ class PhotoGridAdapter(
                         }
                     }, 100)
                 } else {
-                    // 如果是图片，确保不显示播放图�?
+                    // 如果是图片，确保不显示播放图�?
                     holder.videoPlayIcon.visibility = View.GONE
                     holder.videoView.visibility = View.GONE
                     holder.imageView.visibility = View.VISIBLE
@@ -141,7 +146,7 @@ class PhotoGridAdapter(
             
             // 延迟检查可见性，确保布局完成
             holder.itemView.post {
-                // 再次检�?mediaType，确�?ViewHolder 没有被复用为图片
+                // 再次检�?mediaType，确�?ViewHolder 没有被复用为图片
                 val currentPhoto = photoList.getOrNull(position)
                 if (currentPhoto?.mediaType == PhotoItem.MediaType.VIDEO) {
                     if (isViewHolderVisible(holder) && position != currentPlayingPosition) {
@@ -150,18 +155,18 @@ class PhotoGridAdapter(
                         stopVideoPlayback(holder)
                     }
                 } else {
-                    // 如果是图片，确保不显示播放图�?
+                    // 如果是图片，确保不显示播放图�?
                     holder.videoPlayIcon.visibility = View.GONE
                     holder.videoView.visibility = View.GONE
                     holder.imageView.visibility = View.VISIBLE
                 }
             }
         } else {
-            // 图片：显�?ImageView，隐�?VideoView 和播放图�?
-            // 注意：不调用 stopVideoPlayback()，因为它可能会显示播放图�?
+            // 图片：显�?ImageView，隐�?VideoView 和播放图�?
+            // 注意：不调用 stopVideoPlayback()，因为它可能会显示播放图�?
             holder.imageView.visibility = View.VISIBLE
             holder.videoView.visibility = View.GONE
-            holder.videoPlayIcon.visibility = View.GONE // 确保图片不显示播放图�?
+            holder.videoPlayIcon.visibility = View.GONE // 确保图片不显示播放图�?
             
             // 直接停止 VideoView，不调用 stopVideoPlayback()（避免显示播放图标）
             try {
@@ -184,28 +189,40 @@ class PhotoGridAdapter(
                 .into(holder.imageView)
         }
 
-        // 最后再次确认状态（关键修复：确保图片不显示播放图标�?
-        // 在绑定完成后，强制检�?mediaType，确保状态正�?
+        // 最后再次确认状态（关键修复：确保图片不显示播放图标�?
+        // 在绑定完成后，强制检�?mediaType，确保状态正�?
         if (photo.mediaType == PhotoItem.MediaType.IMAGE) {
             holder.videoPlayIcon.visibility = View.GONE
             holder.videoView.visibility = View.GONE
             holder.imageView.visibility = View.VISIBLE
         }
 
-        // 添加点击事件
+        // 更新选择状态显示
+        val inSelectionMode = isSelectionMode?.invoke() ?: false
+        val isSelected = isPhotoSelected?.invoke(photo.id) ?: false
+        
+        if (inSelectionMode) {
+            holder.checkMark.visibility = if (isSelected) View.VISIBLE else View.GONE
+            holder.selectionOverlay.visibility = if (isSelected) View.VISIBLE else View.GONE
+        } else {
+            holder.checkMark.visibility = View.GONE
+            holder.selectionOverlay.visibility = View.GONE
+        }
+
+        // 单击：预览（使用系统查看器）
         holder.itemView.setOnClickListener {
-            if (isVideo) {
-                // 视频点击：使用系统播放器
-                onPhotoClick?.invoke(position)
-            } else {
-                // 图片点击：打开详情�?
-                onPhotoClick?.invoke(position)
-            }
+            onPhotoClick?.invoke(position)
+        }
+
+        // 长按：弹出操作菜单（删除 / 分享）
+        holder.itemView.setOnLongClickListener {
+            onPhotoLongClick?.invoke(position)
+            true
         }
     }
     
     /**
-     * 检�?ViewHolder 是否可见
+     * 检�?ViewHolder 是否可见
      */
     private fun isViewHolderVisible(holder: PhotoGridViewHolder): Boolean {
         val view = holder.itemView
@@ -214,7 +231,7 @@ class PhotoGridAdapter(
         }
         val rect = android.graphics.Rect()
         val visible = view.getGlobalVisibleRect(rect)
-        // 至少 50% 可见才认为是可见�?
+        // 至少 50% 可见才认为是可见�?
         val visibleArea = rect.width() * rect.height()
         val totalArea = view.width * view.height
         return visible && totalArea > 0 && (visibleArea.toFloat() / totalArea) > 0.5f
@@ -222,11 +239,11 @@ class PhotoGridAdapter(
     
     
     /**
-     * 开始视频播�?
+     * 开始视频播�?
      */
     private fun startVideoPlayback(holder: PhotoGridViewHolder, position: Int) {
         if (currentPlayingPosition != position) {
-            // 停止之前播放的视�?
+            // 停止之前播放的视�?
             if (currentPlayingPosition != -1) {
                 val prevHolder = viewHolders[currentPlayingPosition]
                 prevHolder?.let { stopVideoPlayback(it) }
@@ -235,23 +252,23 @@ class PhotoGridAdapter(
         }
         
         try {
-            // 确保 VideoView 的布局参数正确，填充整个容�?
+            // 确保 VideoView 的布局参数正确，填充整个容�?
             holder.videoView.layoutParams.apply {
                 width = android.view.ViewGroup.LayoutParams.MATCH_PARENT
                 height = android.view.ViewGroup.LayoutParams.MATCH_PARENT
             }
             
-            // 显示 VideoView，隐藏缩略图和播放图�?
+            // 显示 VideoView，隐藏缩略图和播放图�?
             holder.imageView.visibility = View.GONE
             holder.videoView.visibility = View.VISIBLE
-            holder.videoPlayIcon.visibility = View.GONE // 播放时隐藏播放图�?
+            holder.videoPlayIcon.visibility = View.GONE // 播放时隐藏播放图�?
             
-            // 确保视频开始播�?
+            // 确保视频开始播�?
             if (!holder.videoView.isPlaying) {
                 holder.videoView.start()
             }
             
-            // 再次尝试设置缩放模式（在播放开始后�?
+            // 再次尝试设置缩放模式（在播放开始后�?
             holder.videoView.setOnPreparedListener { mediaPlayer ->
                 try {
                     val method = mediaPlayer.javaClass.getMethod("setVideoScalingMode", Int::class.java)
@@ -261,7 +278,7 @@ class PhotoGridAdapter(
                 }
             }
         } catch (e: Exception) {
-            // 播放失败时忽�?
+            // 播放失败时忽�?
         }
     }
     
@@ -275,7 +292,7 @@ class PhotoGridAdapter(
             }
             holder.videoView.stopPlayback()
             
-            // 检查当�?holder 对应�?photo 是否为视�?
+            // 检查当�?holder 对应�?photo 是否为视�?
             val position = holder.bindingAdapterPosition
             val photo = if (position != RecyclerView.NO_POSITION) {
                 photoList.getOrNull(position)
@@ -283,12 +300,12 @@ class PhotoGridAdapter(
                 null
             }
             
-            // 只有视频才显示播放图�?
+            // 只有视频才显示播放图�?
             if (photo?.mediaType == PhotoItem.MediaType.VIDEO) {
-                // 停止播放时，显示缩略图和播放图标，隐�?VideoView
+                // 停止播放时，显示缩略图和播放图标，隐�?VideoView
                 holder.imageView.visibility = View.VISIBLE
                 holder.videoView.visibility = View.GONE
-                holder.videoPlayIcon.visibility = View.VISIBLE // 停止时显示播放图�?
+                holder.videoPlayIcon.visibility = View.VISIBLE // 停止时显示播放图�?
             } else {
                 // 图片：确保不显示播放图标
                 holder.imageView.visibility = View.VISIBLE
@@ -302,7 +319,7 @@ class PhotoGridAdapter(
     
     override fun onViewRecycled(holder: PhotoGridViewHolder) {
         super.onViewRecycled(holder)
-        // 回收时停止视频播�?
+        // 回收时停止视频播�?
         stopVideoPlayback(holder)
         val position = holder.bindingAdapterPosition
         if (position != RecyclerView.NO_POSITION) {
@@ -319,22 +336,22 @@ class PhotoGridAdapter(
         if (position != RecyclerView.NO_POSITION) {
             val photo = photoList.getOrNull(position)
             if (photo != null) {
-                // 确保 ViewHolder 被存�?
+                // 确保 ViewHolder 被存�?
                 viewHolders[position] = holder
                 
-                // 如果是图片，确保不显示播放图�?
+                // 如果是图片，确保不显示播放图�?
                 if (photo.mediaType == PhotoItem.MediaType.IMAGE) {
                     holder.videoPlayIcon.visibility = View.GONE
                     holder.videoView.visibility = View.GONE
                     holder.imageView.visibility = View.VISIBLE
                 } else if (photo.mediaType == PhotoItem.MediaType.VIDEO) {
-                    // 视频：延迟检查可见性并自动播放（允许替换当前播放的视频�?
+                    // 视频：延迟检查可见性并自动播放（允许替换当前播放的视频�?
                     holder.itemView.postDelayed({
                         val currentPhoto = photoList.getOrNull(position)
                         if (currentPhoto?.mediaType == PhotoItem.MediaType.VIDEO && isViewHolderVisible(holder)) {
-                            // 检查是否需要播放（如果当前没有播放，或者这个视频可见度更高�?
+                            // 检查是否需要播放（如果当前没有播放，或者这个视频可见度更高�?
                             if (currentPlayingPosition == -1 || position != currentPlayingPosition) {
-                                checkVisibleItems() // 重新检查所有可见项，选择最佳视�?
+                                checkVisibleItems() // 重新检查所有可见项，选择最佳视�?
                             }
                         }
                     }, 150)
@@ -354,7 +371,7 @@ class PhotoGridAdapter(
      * 检查所有可见项，自动播放第一个可见的视频
      */
     fun checkVisibleItems() {
-        // 获取 RecyclerView（通过第一�?ViewHolder 或直接查找）
+        // 获取 RecyclerView（通过第一�?ViewHolder 或直接查找）
         val recyclerView = viewHolders.values.firstOrNull()?.itemView?.parent as? RecyclerView
             ?: return
         
@@ -372,10 +389,10 @@ class PhotoGridAdapter(
             val photo = photoList.getOrNull(position) ?: continue
             val holder = recyclerView.getChildViewHolder(child) as? PhotoGridViewHolder ?: continue
             
-            // 确保 ViewHolder 被存�?
+            // 确保 ViewHolder 被存�?
             viewHolders[position] = holder
             
-            // 如果是图片，确保不显示播放图�?
+            // 如果是图片，确保不显示播放图�?
             if (photo.mediaType == PhotoItem.MediaType.IMAGE) {
                 holder.videoPlayIcon.visibility = View.GONE
                 holder.videoView.visibility = View.GONE
@@ -386,7 +403,7 @@ class PhotoGridAdapter(
                     // 忽略错误
                 }
             } else if (photo.mediaType == PhotoItem.MediaType.VIDEO) {
-                // 检查视频是否可�?
+                // 检查视频是否可�?
                 if (isViewHolderVisible(holder)) {
                     val ratio = getVisibilityRatio(holder)
                     if (ratio > bestVisibleRatio) {
@@ -419,7 +436,7 @@ class PhotoGridAdapter(
     }
     
     /**
-     * 获取 ViewHolder 的可见比�?
+     * 获取 ViewHolder 的可见比�?
      */
     private fun getVisibilityRatio(holder: PhotoGridViewHolder): Float {
         val view = holder.itemView

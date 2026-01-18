@@ -8,4 +8,23 @@
     <string name="view_mode_menu_title">查看方式</string>
     <string name="video_play">播放视频</string>
     <string name="privacy_policy">隐私政策</string>
+    <string name="selected_count">已选择 %d 项</string>
+    <string name="delete">删除</string>
+    <string name="share">分享</string>
+    <string name="cancel">取消</string>
+    <string name="select_all">全选</string>
+    <string name="deselect_all">取消全选</string>
+    <string name="delete_confirm">确定要删除选中的 %d 项吗？</string>
+    <string name="delete_success">已删除 %d 项</string>
+    <string name="delete_failed">删除失败</string>
+    <string name="favorite">收藏</string>
+    <string name="unfavorite">取消收藏</string>
+    <string name="show_favorites">显示收藏</string>
+    <string name="show_all">显示全部</string>
+    <string name="search">搜索</string>
+    <string name="filter_by_date">按日期筛选</string>
+    <string name="filter_by_type">按类型筛选</string>
+    <string name="photos_only">仅照片</string>
+    <string name="videos_only">仅视频</string>
+    <string name="all_media">全部</string>
 </resources>
