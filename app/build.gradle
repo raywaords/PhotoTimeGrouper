@@ -145,6 +145,8 @@ dependencies {
     implementation "androidx.room:room-runtime:$room_version"
     implementation "androidx.room:room-ktx:$room_version"
     ksp "androidx.room:room-compiler:$room_version"
+    // Room testing
+    testImplementation "androidx.room:room-testing:$room_version"
     
     // Kotlin Coroutines
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
@@ -157,6 +159,8 @@ dependencies {
     testImplementation 'org.mockito.kotlin:mockito-kotlin:5.2.1'
     testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3'
     testImplementation 'androidx.arch.core:core-testing:2.2.0'
+    // Robolectric for Android unit tests
+    testImplementation 'org.robolectric:robolectric:4.11.1'
     
     // Test coverage (JaCoCo)
     testImplementation 'org.jacoco:org.jacoco.core:0.8.11'

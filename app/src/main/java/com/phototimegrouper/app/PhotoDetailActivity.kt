@@ -78,6 +78,9 @@ class PhotoDetailActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_CURRENT_POSITION = "extra_current_position"
+        // 保留此常量以兼容旧测试（实际已不再使用，照片列表从 Application 获取）
+        @Deprecated("照片列表现在从 Application 获取，不再通过 Intent 传递")
+        const val EXTRA_PHOTO_LIST = "extra_photo_list"
     }
 }
 
