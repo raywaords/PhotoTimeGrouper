@@ -1,13 +1,14 @@
 buildscript {
     ext.kotlin_version = "1.9.20"
     repositories {
-        // 使用阿里云镜像加速
+        // 优先使用官方源，避免第三方镜像（如阿里云）返回 502 导致构建失败
+        google()
+        mavenCentral()
+        // 可选：阿里云镜像作为备用（网络不稳定时可以加速）
+        // 注意：放在官方源之后，避免镜像返回 5xx 时阻塞解析
         maven { url 'https://maven.aliyun.com/repository/google' }
         maven { url 'https://maven.aliyun.com/repository/central' }
         maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
-        // 备用源
-        google()
-        mavenCentral()
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:8.0.2'
