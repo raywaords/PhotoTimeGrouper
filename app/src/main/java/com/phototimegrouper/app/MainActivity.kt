@@ -18,6 +18,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.phototimegrouper.app.databinding.ActivityMainBinding
+import com.phototimegrouper.app.repository.PhotoRepository
 import android.view.MenuItem
 import android.view.View
 import android.widget.PopupMenu
@@ -46,9 +47,12 @@ class MainActivity : AppCompatActivity() {
     private var currentMediaTypeFilter: PhotoItem.MediaType? = null // 当前媒体类型筛选
     private var currentDaysFilter: Int? = null // 当前日期筛选（天数，-1表示今年）
     
-    // SharedPreferences 用于持久化查看模式和收藏等配置
+    // SharedPreferences 用于持久化查看模式等配置（收藏现在使用 Room）
     private lateinit var sharedPreferences: SharedPreferences
     private val PREF_VIEW_MODE = "pref_view_mode"
+    
+    // Repository 用于数据访问
+    private lateinit var photoRepository: PhotoRepository
     
     // Permissions for different Android versions
     private val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -312,31 +316,41 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun loadFavorites() {
-        val favoritesString = sharedPreferences.getString(PREF_FAVORITES, "")
-        favoritePhotos.clear()
-        if (!favoritesString.isNullOrEmpty()) {
-            favoritesString.split(",").forEach { idStr ->
-                idStr.trim().toLongOrNull()?.let { favoritePhotos.add(it) }
+        lifecycleScope.launch {
+            try {
+                val favoriteIds = photoRepository.getFavoritePhotoIds()
+                favoritePhotos.clear()
+                favoritePhotos.addAll(favoriteIds)
+            } catch (e: Exception) {
+                // 如果加载失败，使用空集合（不影响应用启动）
+                favoritePhotos.clear()
             }
         }
     }
     
-    private fun saveFavorites() {
-        val favoritesString = favoritePhotos.joinToString(",")
-        sharedPreferences.edit().putString(PREF_FAVORITES, favoritesString).apply()
-    }
-    
     fun toggleFavorite(photoId: Long) {
-        if (favoritePhotos.contains(photoId)) {
-            favoritePhotos.remove(photoId)
-        } else {
-            favoritePhotos.add(photoId)
+        lifecycleScope.launch {
+            try {
+                val newState = photoRepository.toggleFavorite(photoId)
+                // 更新本地集合
+                if (newState) {
+                    favoritePhotos.add(photoId)
+                } else {
+                    favoritePhotos.remove(photoId)
+                }
+                withContext(Dispatchers.Main) {
+                    photoGroupAdapter?.notifyDataSetChanged()
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "操作失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
-        saveFavorites()
-        photoGroupAdapter?.notifyDataSetChanged()
     }
     
     fun isFavorite(photoId: Long): Boolean {
+        // 先从内存集合检查（快速），如果不在集合中，再从数据库查询
         return favoritePhotos.contains(photoId)
     }
     
@@ -437,8 +451,18 @@ class MainActivity : AppCompatActivity() {
         
         lifecycleScope.launch {
             try {
+                // 使用 Repository 加载照片
                 val photos = withContext(Dispatchers.IO) {
-                    loadPhotosFromMediaStore()
+                    photoRepository.loadPhotosFromMediaStore()
+                }
+                
+                // 同步数据到数据库（在后台执行，不阻塞 UI）
+                withContext(Dispatchers.IO) {
+                    photoRepository.syncMediaStoreToDatabase(photos)
+                    // 同步后重新加载收藏列表
+                    val favoriteIds = photoRepository.getFavoritePhotoIds()
+                    favoritePhotos.clear()
+                    favoritePhotos.addAll(favoriteIds)
                 }
                 
                 // 应用筛选条件

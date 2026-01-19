@@ -14,6 +14,8 @@ buildscript {
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
         // JaCoCo plugin for test coverage
         classpath 'org.jacoco:org.jacoco.core:0.8.11'
+        // KSP for Room code generation (Kotlin Symbol Processing)
+        classpath 'com.google.devtools.ksp:com.google.devtools.ksp.gradle.plugin:1.9.20-1.0.14'
     }
 }
 
