@@ -345,4 +345,28 @@ class PhotoRepository private constructor(context: Context) {
         val updatedAt = deletedAt
         photoDao.softDeletePhotos(photoIds, deletedAt, updatedAt)
     }
+
+    /**
+     * 获取所有已删除照片（回收站）Flow
+     */
+    fun getDeletedPhotosFlow(): Flow<List<PhotoMetadataEntity>> {
+        return photoDao.getDeletedPhotos()
+    }
+
+    /**
+     * 获取已删除照片的 ID 集合（用于从主列表中过滤）
+     */
+    suspend fun getDeletedPhotoIds(): Set<Long> = withContext(Dispatchers.IO) {
+        photoDao.getDeletedPhotos().first().map { it.id }.toSet()
+    }
+
+    /**
+     * 获取已在回收站中超过指定天数的照片（用于自动清理）
+     * @param days 天数，例如 30 表示超过 30 天
+     */
+    suspend fun getExpiredDeletedPhotos(days: Long): List<PhotoMetadataEntity> = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis() / 1000
+        val threshold = now - days * 24 * 60 * 60
+        photoDao.getExpiredDeletedPhotos(threshold)
+    }
 }

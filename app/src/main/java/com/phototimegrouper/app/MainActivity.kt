@@ -23,13 +23,21 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.PopupMenu
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.appcompat.widget.SearchView
+import android.app.Activity
 
 class MainActivity : AppCompatActivity() {
     
     private lateinit var binding: ActivityMainBinding
     private val REQUEST_CODE_PERMISSIONS = 100
+    private val REQUEST_CODE_DELETE_MEDIA = 101
     private var allPhotosList: ArrayList<PhotoItem> = arrayListOf()
     private var currentViewMode: ViewMode = ViewMode.LARGE_ICON
     private var photoGroupAdapter: PhotoGroupAdapter? = null
@@ -46,6 +54,8 @@ class MainActivity : AppCompatActivity() {
     // 搜索筛选相关
     private var currentMediaTypeFilter: PhotoItem.MediaType? = null // 当前媒体类型筛选
     private var currentDaysFilter: Int? = null // 当前日期筛选（天数，-1表示今年）
+    private var currentSearchQuery: String? = null // 当前搜索关键词
+    private val searchQueryFlow = MutableStateFlow<String?>(null) // 搜索查询 Flow（用于 debounce）
     
     // SharedPreferences 用于持久化查看模式等配置（收藏现在使用 Room）
     private lateinit var sharedPreferences: SharedPreferences
@@ -69,6 +79,9 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // 初始化 Repository（数据访问层）
+        photoRepository = PhotoRepository.getInstance(this)
+
         // 初始�?SharedPreferences
         sharedPreferences = getSharedPreferences("PhotoTimeGrouperPrefs", Context.MODE_PRIVATE)
         
@@ -86,6 +99,8 @@ class MainActivity : AppCompatActivity() {
         setupSwipeRefresh()
         setupViewModeMenu()
         setupSelectionMode()
+        setupSearchView()
+        setupSearchFlow()
         checkPermissions()
     }
     
@@ -208,24 +223,76 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
+    private var pendingDeleteCount: Int = 0
+
     private fun deleteSelectedPhotos() {
         val selectedItems = allPhotosList.filter { selectedPhotos.contains(it.id) }
         if (selectedItems.isEmpty()) {
             Toast.makeText(this, "请先选择要删除的照片", Toast.LENGTH_SHORT).show()
             return
         }
-        
+
+        // 回收站模式：软删除，标记为已删除，可在回收站恢复
         AlertDialog.Builder(this)
-            .setTitle("确认删除")
-            .setMessage(getString(R.string.delete_confirm, selectedItems.size))
-            .setPositiveButton("删除") { _, _ ->
-                performDelete(selectedItems)
+            .setTitle("移到回收站")
+            .setMessage("${getString(R.string.delete_confirm, selectedItems.size)}\n照片/视频将被移到回收站，可在 30 天内恢复。")
+            .setPositiveButton("移到回收站") { _, _ ->
+                moveToRecycleBin(selectedItems)
             }
             .setNegativeButton("取消", null)
             .show()
     }
+
+    private fun moveToRecycleBin(photosToDelete: List<PhotoItem>) {
+        lifecycleScope.launch {
+            try {
+                val ids = photosToDelete.map { it.id }
+                photoRepository.softDeletePhotos(ids)
+                Toast.makeText(
+                    this@MainActivity,
+                    "已移到回收站：${ids.size} 项",
+                    Toast.LENGTH_SHORT
+                ).show()
+                // 退出选择模式并刷新列表（从主视图中隐藏这些项目）
+                exitSelectionMode()
+                loadPhotos()
+            } catch (e: Exception) {
+                Toast.makeText(
+                    this@MainActivity,
+                    "移动到回收站失败: ${e.message}",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
     
-    private fun performDelete(photosToDelete: List<PhotoItem>) {
+    /**
+     * Android 11+ 使用系统删除对话框，Android 10 及以下使用旧的 ContentResolver.delete 流程
+     */
+    private fun requestDeleteWithSystemDialog(photosToDelete: List<PhotoItem>) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                val uris = photosToDelete.map { Uri.parse(it.uri) }
+                val pendingIntent = MediaStore.createDeleteRequest(contentResolver, uris)
+                pendingDeleteCount = photosToDelete.size
+                startIntentSenderForResult(
+                    pendingIntent.intentSender,
+                    REQUEST_CODE_DELETE_MEDIA,
+                    null,
+                    0,
+                    0,
+                    0
+                )
+            } catch (e: Exception) {
+                Toast.makeText(this, "无法请求系统删除: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        } else {
+            // Android 10 及以下仍然使用旧的删除方式
+            performDeleteLegacy(photosToDelete)
+        }
+    }
+
+    private fun performDeleteLegacy(photosToDelete: List<PhotoItem>) {
         lifecycleScope.launch {
             try {
                 var successCount = 0
@@ -307,11 +374,24 @@ class MainActivity : AppCompatActivity() {
                         showSearchDialog()
                         true
                     }
+                    R.id.menu_recycle_bin_demo -> {
+                        openRecycleBinDemo()
+                        true
+                    }
                     else -> false
                 }
             }
             
             popupMenu.show()
+        }
+    }
+
+    private fun openRecycleBinDemo() {
+        try {
+            val intent = Intent(this, RecycleBinDemoActivity::class.java)
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "无法打开回收站预览: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
     
@@ -362,6 +442,51 @@ class MainActivity : AppCompatActivity() {
             return
         }
         loadPhotos() // 重新加载照片，应用筛选
+    }
+    
+    /**
+     * 设置搜索栏
+     */
+    private fun setupSearchView() {
+        binding.searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(query: String?): Boolean {
+                // 用户按下搜索按钮时，直接执行搜索（不等待 debounce）
+                currentSearchQuery = query?.takeIf { it.isNotBlank() }
+                searchQueryFlow.value = currentSearchQuery
+                loadPhotos()
+                return true
+            }
+
+            override fun onQueryTextChange(newText: String?): Boolean {
+                // 实时搜索（通过 Flow debounce）
+                val query = newText?.takeIf { it.isNotBlank() }
+                searchQueryFlow.value = query
+                return true
+            }
+        })
+        
+        binding.searchView.setOnCloseListener {
+            // 关闭搜索时，清空搜索条件
+            currentSearchQuery = null
+            searchQueryFlow.value = null
+            loadPhotos()
+            false
+        }
+    }
+    
+    /**
+     * 设置搜索 Flow（debounce 300ms）
+     */
+    private fun setupSearchFlow() {
+        searchQueryFlow
+            .debounce(300) // 300ms 防抖
+            .distinctUntilChanged() // 避免重复搜索相同关键词
+            .onEach { query ->
+                // 搜索关键词变化时，更新并重新加载
+                currentSearchQuery = query
+                loadPhotos()
+            }
+            .launchIn(lifecycleScope)
     }
     
     private fun showSearchDialog() {
@@ -451,22 +576,59 @@ class MainActivity : AppCompatActivity() {
         
         lifecycleScope.launch {
             try {
-                // 使用 Repository 加载照片
-                val photos = withContext(Dispatchers.IO) {
-                    photoRepository.loadPhotosFromMediaStore()
-                }
+                val photos: List<PhotoItem>
                 
-                // 同步数据到数据库（在后台执行，不阻塞 UI）
-                withContext(Dispatchers.IO) {
-                    photoRepository.syncMediaStoreToDatabase(photos)
-                    // 同步后重新加载收藏列表
-                    val favoriteIds = photoRepository.getFavoritePhotoIds()
-                    favoritePhotos.clear()
-                    favoritePhotos.addAll(favoriteIds)
+                // 如果有搜索关键词，从数据库搜索；否则从 MediaStore 加载
+                if (currentSearchQuery != null && currentSearchQuery!!.isNotBlank()) {
+                    // 搜索模式：从数据库搜索
+                    val searchResults = withContext(Dispatchers.IO) {
+                        photoRepository.searchPhotos(currentSearchQuery!!)
+                    }
+                    
+                    // 将 PhotoMetadataEntity 转换为 PhotoItem
+                    photos = searchResults.map { entity ->
+                        PhotoItem(
+                            id = entity.id,
+                            uri = entity.uri,
+                            displayName = entity.displayName,
+                            dateAdded = entity.dateAdded,
+                            dateModified = entity.dateModified,
+                            size = entity.size,
+                            width = entity.width,
+                            height = entity.height,
+                            mimeType = entity.mimeType,
+                            bucketDisplayName = entity.bucketDisplayName,
+                            data = entity.data,
+                            mediaType = PhotoItem.MediaType.valueOf(entity.mediaType),
+                            iso = entity.iso
+                        )
+                    }
+                } else {
+                    // 正常模式：从 MediaStore 加载
+                    photos = withContext(Dispatchers.IO) {
+                        photoRepository.loadPhotosFromMediaStore()
+                    }
+
+                    // 同步数据到数据库（在后台执行，不阻塞 UI）
+                    withContext(Dispatchers.IO) {
+                        photoRepository.syncMediaStoreToDatabase(photos)
+                        // 同步后重新加载收藏列表
+                        val favoriteIds = photoRepository.getFavoritePhotoIds()
+                        favoritePhotos.clear()
+                        favoritePhotos.addAll(favoriteIds)
+                    }
                 }
-                
+
                 // 应用筛选条件
                 var filteredPhotos = photos
+
+                // 0. 根据数据库中的删除状态过滤（回收站中的项目不在主列表中显示）
+                val deletedIds = withContext(Dispatchers.IO) {
+                    photoRepository.getDeletedPhotoIds()
+                }
+                if (deletedIds.isNotEmpty()) {
+                    filteredPhotos = filteredPhotos.filterNot { deletedIds.contains(it.id) }
+                }
                 
                 // 1. 应用收藏筛选
                 if (showFavoritesOnly) {
@@ -541,7 +703,9 @@ class MainActivity : AppCompatActivity() {
                                 }
                             }
                         },
-                        isPhotoSelected = { photoId -> this@MainActivity.isPhotoSelected(photoId) }
+                        isPhotoSelected = { photoId -> this@MainActivity.isPhotoSelected(photoId) },
+                        isFavorite = { photoId -> this@MainActivity.isFavorite(photoId) },
+                        onToggleFavorite = { photoId -> this@MainActivity.toggleFavorite(photoId) }
                     )
                     binding.recyclerView.adapter = photoGroupAdapter
                 }
@@ -805,23 +969,38 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * 删除单张照片或视频
+     * 删除单张照片或视频（带确认弹窗）
      */
     private fun deleteSinglePhoto(photo: PhotoItem) {
-        try {
-            val uri = Uri.parse(photo.uri)
-            val rows = contentResolver.delete(uri, null, null)
-            if (rows > 0) {
-                Toast.makeText(this, "已删除：${photo.displayName}", Toast.LENGTH_SHORT).show()
-                // 删除后重新加载列表
+        AlertDialog.Builder(this)
+            .setTitle("确认删除")
+            .setMessage("确定要删除“${photo.displayName}”吗？\n此操作不可恢复，将从设备中永久删除该照片/视频。")
+            .setPositiveButton("删除") { _, _ ->
+                requestDeleteWithSystemDialog(listOf(photo))
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_CODE_DELETE_MEDIA) {
+            if (resultCode == Activity.RESULT_OK) {
+                // 用户在系统对话框中确认删除
+                Toast.makeText(
+                    this,
+                    getString(R.string.delete_success, pendingDeleteCount),
+                    Toast.LENGTH_SHORT
+                ).show()
+                pendingDeleteCount = 0
+                // 退出选择模式并刷新列表
+                exitSelectionMode()
                 loadPhotos()
             } else {
-                Toast.makeText(this, "删除失败：${photo.displayName}", Toast.LENGTH_SHORT).show()
+                // 用户取消或删除失败
+                Toast.makeText(this, getString(R.string.delete_failed), Toast.LENGTH_SHORT).show()
+                pendingDeleteCount = 0
             }
-        } catch (e: SecurityException) {
-            Toast.makeText(this, "没有删除权限：${e.message}", Toast.LENGTH_LONG).show()
-        } catch (e: Exception) {
-            Toast.makeText(this, "删除失败：${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 

@@ -62,6 +62,18 @@
                 android:visibility="gone"
                 android:contentDescription="已选择" />
 
+            <!-- 收藏星标 -->
+            <ImageView
+                android:id="@+id/favoriteIcon"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="top|end"
+                android:layout_marginTop="8dp"
+                android:layout_marginEnd="44dp"
+                android:src="@drawable/ic_favorite_border"
+                android:contentDescription="@string/favorite"
+                android:visibility="visible" />
+
         </FrameLayout>
 
         <TextView

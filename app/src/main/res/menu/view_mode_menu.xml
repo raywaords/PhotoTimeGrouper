@@ -37,4 +37,8 @@
     <item
         android:id="@+id/menu_search"
         android:title="@string/search" />
+
+    <item
+        android:id="@+id/menu_recycle_bin_demo"
+        android:title="@string/recycle_bin_demo" />
 </menu>

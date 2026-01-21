@@ -26,8 +26,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
         <activity
             android:name=".PhotoDetailActivity"
+            android:exported="false"
+            android:theme="@style/Theme.PhotoTimeGrouper" />
+
+        <!-- 回收站预览界面（仅演示 UI） -->
+        <activity
+            android:name=".RecycleBinDemoActivity"
             android:exported="false"
             android:theme="@style/Theme.PhotoTimeGrouper" />
     </application>

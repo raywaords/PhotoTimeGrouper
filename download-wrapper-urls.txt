@@ -1,0 +1,25 @@
+gradle-wrapper.jar 下载地址列表
+=====================================
+
+方法 1: GitHub 直接下载（推荐）
+https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar
+
+方法 2: Maven Central
+https://repo1.maven.org/maven2/org/gradle/gradle-wrapper/8.5/gradle-wrapper-8.5.jar
+注意：下载后需要重命名为 gradle-wrapper.jar
+
+方法 3: jsDelivr CDN（备用）
+https://cdn.jsdelivr.net/gh/gradle/gradle@v8.5.0/gradle/wrapper/gradle-wrapper.jar
+
+方法 4: 使用 Gradle 命令生成
+如果已安装 Gradle，运行：
+gradle wrapper --gradle-version=8.5
+
+方法 5: 从其他项目复制
+如果有其他正常工作的 Android 项目，复制其 gradle/wrapper/gradle-wrapper.jar
+
+=====================================
+保存位置：
+C:\Users\leiyu\Desktop\PhotoTimeGrouper\gradle\wrapper\gradle-wrapper.jar
+
+文件大小参考：60,000 - 70,000 字节（60-70 KB）

@@ -171,6 +171,13 @@ interface PhotoMetadataDao {
      */
     @Query("SELECT COUNT(*) FROM photo_metadata WHERE isDeleted = 1")
     suspend fun getDeletedCount(): Int
+
+    /**
+     * 获取已在回收站中超过指定时间的照片（用于自动清理）
+     * @param expiredBefore 删除时间小于等于该时间戳（秒）的记录会被视为已过期
+     */
+    @Query("SELECT * FROM photo_metadata WHERE isDeleted = 1 AND deletedAt IS NOT NULL AND deletedAt <= :expiredBefore")
+    suspend fun getExpiredDeletedPhotos(expiredBefore: Long): List<PhotoMetadataEntity>
     
     // ==================== 同步操作 ====================
     

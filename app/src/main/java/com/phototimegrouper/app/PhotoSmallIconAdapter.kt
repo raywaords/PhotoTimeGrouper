@@ -24,6 +24,8 @@ class PhotoSmallIconAdapter(
     private val photoList: List<PhotoItem>,
     private val isSelectionMode: (() -> Boolean)? = null,
     private val isPhotoSelected: ((Long) -> Boolean)? = null,
+    private val isFavorite: ((Long) -> Boolean)? = null,
+    private val onToggleFavorite: ((Long) -> Unit)? = null,
     private val onPhotoClick: ((Int) -> Unit)? = null,
     private val onPhotoLongClick: ((Int) -> Unit)? = null
 ) : RecyclerView.Adapter<PhotoSmallIconAdapter.PhotoSmallIconViewHolder>() {
@@ -39,6 +41,7 @@ class PhotoSmallIconAdapter(
         val videoView: VideoView = view.findViewById(R.id.videoView)
         val checkMark: ImageView = view.findViewById(R.id.checkMark)
         val selectionOverlay: View = view.findViewById(R.id.selectionOverlay)
+        val favoriteIcon: ImageView = view.findViewById(R.id.favoriteIcon)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PhotoSmallIconViewHolder {
@@ -186,9 +189,21 @@ class PhotoSmallIconAdapter(
             holder.selectionOverlay.visibility = View.GONE
         }
 
+        // 更新收藏星标状态
+        val favorite = isFavorite?.invoke(photo.id) ?: false
+        holder.favoriteIcon.setImageResource(
+            if (favorite) R.drawable.ic_favorite_filled else R.drawable.ic_favorite_border
+        )
+
         // 添加点击事件：单击预览
         holder.itemView.setOnClickListener {
             onPhotoClick?.invoke(position)
+        }
+
+        // 长按星标：收藏/取消收藏
+        holder.favoriteIcon.setOnLongClickListener {
+            onToggleFavorite?.invoke(photo.id)
+            true
         }
 
         // 长按：弹出操作菜单（删除 / 分享）

@@ -56,6 +56,36 @@
             android:textColor="@color/text_on_surface"
             android:textSize="@dimen/text_size_12"
             android:alpha="0.7" />
+
+        <!-- 基本信息：大小 / 分辨率 / 格式 -->
+        <TextView
+            android:id="@+id/photoBasicInfoTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_8"
+            android:textColor="@color/text_on_surface"
+            android:textSize="@dimen/text_size_12"
+            android:alpha="0.85" />
+
+        <!-- EXIF 信息：ISO / 光圈 / 快门 / 相机型号等 -->
+        <TextView
+            android:id="@+id/photoExifInfoTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_4"
+            android:textColor="@color/text_on_surface"
+            android:textSize="@dimen/text_size_12"
+            android:alpha="0.8" />
+
+        <!-- 位置（如果有 GPS） -->
+        <TextView
+            android:id="@+id/photoLocationTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_4"
+            android:textColor="@color/text_on_surface"
+            android:textSize="@dimen/text_size_12"
+            android:alpha="0.8" />
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

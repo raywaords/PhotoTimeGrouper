@@ -22,9 +22,11 @@
     <string name="show_favorites">显示收藏</string>
     <string name="show_all">显示全部</string>
     <string name="search">搜索</string>
+    <string name="search_hint">搜索照片名称...</string>
     <string name="filter_by_date">按日期筛选</string>
     <string name="filter_by_type">按类型筛选</string>
     <string name="photos_only">仅照片</string>
     <string name="videos_only">仅视频</string>
     <string name="all_media">全部</string>
+    <string name="recycle_bin_demo">回收站（预览版）</string>
 </resources>

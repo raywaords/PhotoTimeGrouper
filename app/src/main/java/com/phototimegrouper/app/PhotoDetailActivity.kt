@@ -5,6 +5,10 @@ import android.os.Bundle
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import com.phototimegrouper.app.databinding.ActivityPhotoDetailBinding
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * 照片详情页（全屏查看 + 滑动浏览）
@@ -61,6 +65,40 @@ class PhotoDetailActivity : AppCompatActivity() {
         binding.photoNameTextView.text = photo.displayName
         binding.photoDateTextView.text = DateFormatter.formatDateTime(photo.dateModified)
         binding.photoIndexTextView.text = "${position + 1} / ${photoList.size}"
+
+        // 基本信息：大小 / 分辨率 / 格式
+        val sizeText = photo.getFormattedSize()
+        val resolutionText = photo.getResolution()
+        val formatText = photo.getFormat()
+        binding.photoBasicInfoTextView.text = "大小：$sizeText    分辨率：$resolutionText    格式：$formatText"
+
+        // 先清空 EXIF / 位置信息，避免复用旧数据
+        binding.photoExifInfoTextView.text = ""
+        binding.photoLocationTextView.text = ""
+
+        // 异步加载 EXIF 信息，避免阻塞 UI
+        lifecycleScope.launch {
+            val exifInfo = withContext(Dispatchers.IO) {
+                PhotoMetadataLoader.loadExifInfo(this@PhotoDetailActivity, photo)
+            }
+
+            val exifParts = mutableListOf<String>()
+            exifInfo["ISO"]?.let { exifParts.add("ISO $it") }
+            exifInfo["光圈"]?.let { exifParts.add(it) }
+            exifInfo["曝光时间"]?.let { exifParts.add("曝光：$it") }
+            exifInfo["焦距"]?.let { exifParts.add("焦距：$it") }
+            exifInfo["相机品牌"]?.let { exifParts.add(it) }
+            exifInfo["相机型号"]?.let { exifParts.add(it) }
+
+            binding.photoExifInfoTextView.text = if (exifParts.isNotEmpty()) {
+                exifParts.joinToString("    ")
+            } else {
+                "EXIF：无可用信息"
+            }
+
+            // TODO: 后续可扩展读取 GPS 信息并反向地理编码为城市名称
+            binding.photoLocationTextView.text = ""
+        }
     }
 
     private fun hideSystemUI() {

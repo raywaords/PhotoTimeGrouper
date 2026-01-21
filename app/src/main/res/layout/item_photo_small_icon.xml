@@ -57,6 +57,18 @@
                 android:visibility="gone"
                 android:contentDescription="已选择" />
 
+            <!-- 收藏星标 -->
+            <ImageView
+                android:id="@+id/favoriteIcon"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="top|end"
+                android:layout_marginTop="4dp"
+                android:layout_marginEnd="32dp"
+                android:src="@drawable/ic_favorite_border"
+                android:contentDescription="@string/favorite"
+                android:visibility="visible" />
+
         </FrameLayout>
 
 </androidx.cardview.widget.CardView>

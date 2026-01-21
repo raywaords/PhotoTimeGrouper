@@ -16,7 +16,9 @@ class PhotoGroupAdapter(
     private val isSelectionMode: (() -> Boolean)? = null,
     private val onPhotoClick: ((List<PhotoItem>, Int) -> Unit)? = null,
     private val onPhotoLongClick: ((List<PhotoItem>, Int) -> Unit)? = null,
-    private val isPhotoSelected: ((Long) -> Boolean)? = null
+    private val isPhotoSelected: ((Long) -> Boolean)? = null,
+    private val isFavorite: ((Long) -> Boolean)? = null,
+    private val onToggleFavorite: ((Long) -> Unit)? = null
 ) : RecyclerView.Adapter<PhotoGroupAdapter.PhotoGroupViewHolder>() {
 
     // 按日期降序排序（最新的在前�?
@@ -75,6 +77,8 @@ class PhotoGroupAdapter(
                     photos,
                     isSelectionMode = { isSelectionMode?.invoke() ?: false },
                     isPhotoSelected = { photoId -> isPhotoSelected?.invoke(photoId) ?: false },
+                    isFavorite = { photoId -> isFavorite?.invoke(photoId) ?: false },
+                    onToggleFavorite = { photoId -> onToggleFavorite?.invoke(photoId) },
                     onPhotoClick = { localPosition ->
                         val globalPosition = startIndex + localPosition
                         onPhotoClick?.invoke(allPhotosList, globalPosition)
@@ -106,6 +110,8 @@ class PhotoGroupAdapter(
                     photoHeight = context.resources.getDimensionPixelSize(R.dimen.photo_item_height),
                     isSelectionMode = { isSelectionMode?.invoke() ?: false },
                     isPhotoSelected = { photoId -> isPhotoSelected?.invoke(photoId) ?: false },
+                    isFavorite = { photoId -> isFavorite?.invoke(photoId) ?: false },
+                    onToggleFavorite = { photoId -> onToggleFavorite?.invoke(photoId) },
                     onPhotoClick = { localPosition ->
                         val globalPosition = startIndex + localPosition
                         onPhotoClick?.invoke(allPhotosList, globalPosition)
@@ -135,6 +141,8 @@ class PhotoGroupAdapter(
                     photos,
                     isSelectionMode = { isSelectionMode?.invoke() ?: false },
                     isPhotoSelected = { photoId -> isPhotoSelected?.invoke(photoId) ?: false },
+                    isFavorite = { photoId -> isFavorite?.invoke(photoId) ?: false },
+                    onToggleFavorite = { photoId -> onToggleFavorite?.invoke(photoId) },
                     onPhotoClick = { localPosition ->
                         val globalPosition = startIndex + localPosition
                         onPhotoClick?.invoke(allPhotosList, globalPosition)

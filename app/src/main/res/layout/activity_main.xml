@@ -82,6 +82,23 @@
 
     </LinearLayout>
 
+    <!-- 搜索栏 -->
+    <androidx.appcompat.widget.SearchView
+        android:id="@+id/searchView"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/spacing_16"
+        android:layout_marginTop="@dimen/spacing_16"
+        android:layout_marginEnd="@dimen/spacing_16"
+        android:queryHint="@string/search_hint"
+        android:iconifiedByDefault="false"
+        android:focusable="true"
+        app:defaultQueryHint="@string/search_hint"
+        app:queryBackground="@android:color/transparent"
+        app:layout_constraintEnd_toStartOf="@id/viewModeMenuButton"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <ImageButton
         android:id="@+id/viewModeMenuButton"
         android:layout_width="48dp"
