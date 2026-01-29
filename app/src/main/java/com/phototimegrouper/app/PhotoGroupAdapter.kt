@@ -4,8 +4,10 @@ import android.content.Context
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.GridLayoutManager
+import com.bumptech.glide.Glide
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 
@@ -13,6 +15,7 @@ class PhotoGroupAdapter(
     private val context: Context,
     private val groupedPhotos: Map<String, List<PhotoItem>>,
     private var viewMode: ViewMode = ViewMode.LARGE_ICON,
+    private val showGroupCover: Boolean = true,
     private val isSelectionMode: (() -> Boolean)? = null,
     private val onPhotoClick: ((List<PhotoItem>, Int) -> Unit)? = null,
     private val onPhotoLongClick: ((List<PhotoItem>, Int) -> Unit)? = null,
@@ -30,7 +33,9 @@ class PhotoGroupAdapter(
     }
 
     class PhotoGroupViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val groupCoverImageView: ImageView = view.findViewById(R.id.groupCoverImageView)
         val dateTextView: TextView = view.findViewById(R.id.dateTextView)
+        val groupCountTextView: TextView = view.findViewById(R.id.groupCountTextView)
         val groupRecyclerView: RecyclerView = view.findViewById(R.id.groupRecyclerView)
     }
 
@@ -53,8 +58,21 @@ class PhotoGroupAdapter(
         val date = dateList.getOrNull(position) ?: return
         val photos = groupedPhotos[date] ?: return
 
-        // 使用工具类格式化日期
+        // 与相册一致：可选当天第一张图为缩略图；不显示封面时仅日期+数量（如文件夹内按日期）
         holder.dateTextView.text = DateFormatter.formatDateHeader(date)
+        holder.groupCountTextView.text = "${photos.size} \u9879"
+        holder.groupCoverImageView.visibility = if (showGroupCover) View.VISIBLE else View.GONE
+        if (showGroupCover) {
+            val firstUri = photos.firstOrNull()?.uri
+            if (!firstUri.isNullOrEmpty()) {
+                Glide.with(holder.itemView)
+                    .load(firstUri)
+                    .centerCrop()
+                    .into(holder.groupCoverImageView)
+            } else {
+                holder.groupCoverImageView.setImageDrawable(null)
+            }
+        }
         
         // 计算当前日期组在所有照片中的起始位�?
         var startIndex = 0
@@ -166,9 +184,15 @@ class PhotoGroupAdapter(
                 holder.groupRecyclerView.adapter = PhotoDetailListAdapter(
                     context,
                     photos,
+                    isSelectionMode = { isSelectionMode?.invoke() ?: false },
+                    isPhotoSelected = { photoId -> isPhotoSelected?.invoke(photoId) ?: false },
                     onPhotoClick = { localPosition ->
                         val globalPosition = startIndex + localPosition
                         onPhotoClick?.invoke(allPhotosList, globalPosition)
+                    },
+                    onPhotoLongClick = { localPosition ->
+                        val globalPosition = startIndex + localPosition
+                        onPhotoLongClick?.invoke(allPhotosList, globalPosition)
                     }
                 )
             }

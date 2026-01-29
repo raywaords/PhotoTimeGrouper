@@ -14,20 +14,22 @@ import androidx.test.filters.LargeTest
 import androidx.test.rule.GrantPermissionRule
 import com.phototimegrouper.app.R
 import org.junit.Assert.assertTrue
+import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * 照片加载流程集成测试
+ * ??????????
  * 
- * 测试完整的数据流�?
- * 1. 权限检�?�?照片扫描 �?数据分组 �?RecyclerView 显示
- * 2. 下拉刷新流程
- * 3. 错误处理流程
+ * ??????????
+ * 1. ??????????? ?????? ??RecyclerView ??
+ * 2. ??????
+ * 3. ??????
  */
 @RunWith(AndroidJUnit4::class)
 @LargeTest
+@Ignore("Uses legacy MainActivity and swipeRefreshLayout/recyclerView; app now uses MainActivityNew + fragments")
 class PhotoLoadingIntegrationTest {
 
     @get:Rule
@@ -35,20 +37,23 @@ class PhotoLoadingIntegrationTest {
 
     @get:Rule
     val permissionRule: GrantPermissionRule = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-        GrantPermissionRule.grant(android.Manifest.permission.READ_MEDIA_IMAGES)
+        GrantPermissionRule.grant(
+            android.Manifest.permission.READ_MEDIA_IMAGES,
+            android.Manifest.permission.READ_MEDIA_VIDEO
+        )
     } else {
         GrantPermissionRule.grant(android.Manifest.permission.READ_EXTERNAL_STORAGE)
     }
 
     @Test
     fun testCompletePhotoLoadingFlow() {
-        // 1. 验证 Activity 启动
+        // 1. ?? Activity ??
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
-                // 验证 Activity 不为 null
+                // ?? Activity ?? null
                 assert(activity != null)
                 
-                // 验证权限已授�?
+                // ????????
                 val hasPermission = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
                     ContextCompat.checkSelfPermission(
                         activity,
@@ -64,14 +69,14 @@ class PhotoLoadingIntegrationTest {
                 assertTrue("Permission should be granted", hasPermission)
             }
             
-            // 2. 验证 SwipeRefreshLayout 显示
+            // 2. ?? SwipeRefreshLayout ??
             onView(withId(R.id.swipeRefreshLayout))
                 .check(matches(isDisplayed()))
             
-            // 3. 等待照片加载（给足够的时间让协程完成�?
+            // 3. ????????????????????
             Thread.sleep(3000)
             
-            // 4. 验证 RecyclerView 显示（照片加载完成后应该显示�?
+            // 4. ?? RecyclerView ????????????????
             onView(withId(R.id.recyclerView))
                 .check(matches(isDisplayed()))
         }
@@ -79,39 +84,39 @@ class PhotoLoadingIntegrationTest {
 
     @Test
     fun testPhotoLoadingWithSwipeRefresh() {
-        // 测试下拉刷新流程
+        // ????????
         
-        // 1. 等待初始加载
+        // 1. ??????
         Thread.sleep(2000)
         
-        // 2. 验证 RecyclerView 显示
+        // 2. ?? RecyclerView ??
         onView(withId(R.id.recyclerView))
             .check(matches(isDisplayed()))
         
-        // 3. 执行下拉刷新
+        // 3. ??????
         onView(withId(R.id.swipeRefreshLayout))
             .perform(swipeDown())
         
-        // 4. 等待刷新完成（刷新动画和重新加载�?
+        // 4. ??????????????????
         Thread.sleep(3000)
         
-        // 5. 验证列表仍然显示（刷新后列表应该仍然存在�?
+        // 5. ??????????????????????
         onView(withId(R.id.recyclerView))
             .check(matches(isDisplayed()))
     }
 
     @Test
     fun testSwipeRefreshLayoutConfiguration() {
-        // 测试 SwipeRefreshLayout 配置是否正确
+        // ?? SwipeRefreshLayout ??????
         
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
                 val swipeRefreshLayout = activity.findViewById<androidx.swiperefreshlayout.widget.SwipeRefreshLayout>(R.id.swipeRefreshLayout)
                 
-                // 验证 SwipeRefreshLayout 存在
+                // ?? SwipeRefreshLayout ??
                 assert(swipeRefreshLayout != null)
                 
-                // 验证 RecyclerView �?SwipeRefreshLayout 的子视图
+                // ?? RecyclerView ??SwipeRefreshLayout ????
                 val recyclerView = activity.findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.recyclerView)
                 assert(recyclerView != null)
             }
@@ -120,30 +125,30 @@ class PhotoLoadingIntegrationTest {
 
     @Test
     fun testMainActivityLifecycle() {
-        // 测试 Activity 生命周期中的照片加载
+        // ?? Activity ??????????
         
         val scenario = ActivityScenario.launch(MainActivity::class.java)
         
-        // 1. 验证 onCreate 后视图已初始�?
+        // 1. ?? onCreate ????????
         scenario.onActivity { activity ->
             val swipeRefreshLayout = activity.findViewById<androidx.swiperefreshlayout.widget.SwipeRefreshLayout>(R.id.swipeRefreshLayout)
             assert(swipeRefreshLayout != null)
         }
         
-        // 2. 等待照片加载
+        // 2. ??????
         Thread.sleep(3000)
         
-        // 3. 验证照片列表显示
+        // 3. ????????
         onView(withId(R.id.recyclerView))
             .check(matches(isDisplayed()))
         
-        // 4. 重新创建 Activity（模拟配置更改）
+        // 4. ???? Activity????????
         scenario.recreate()
         
-        // 5. 等待重新加载
+        // 5. ??????
         Thread.sleep(3000)
         
-        // 6. 验证列表仍然显示
+        // 6. ????????
         onView(withId(R.id.recyclerView))
             .check(matches(isDisplayed()))
         

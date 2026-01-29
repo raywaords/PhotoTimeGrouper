@@ -29,4 +29,15 @@
     <string name="videos_only">仅视频</string>
     <string name="all_media">全部</string>
     <string name="recycle_bin_demo">回收站（预览版）</string>
+    <string name="browse_folders">按文件夹浏览</string>
+    <string name="browse_by_time">按时间浏览</string>
+    <string name="go_back">返回</string>
+    <string name="favorites_title">收藏</string>
+    <string name="photos">照片</string>
+    <string name="albums">相册</string>
+    <string name="more">更多</string>
+    <string name="filter">筛选</string>
+    <string name="view_mode">视图模式</string>
+    <string name="apply">应用</string>
+    <string name="clear_all">清除全部</string>
 </resources>

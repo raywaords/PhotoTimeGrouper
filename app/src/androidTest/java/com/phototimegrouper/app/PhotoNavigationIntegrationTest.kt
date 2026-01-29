@@ -22,13 +22,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * 照片导航集成测试
+ * ????????
  * 
- * 测试用户交互流程�?
- * 1. 主界面点击照�?�?启动详情�?
- * 2. 详情页显示照片信�?
- * 3. 详情页左右滑动浏�?
- * 4. 返回主界�?
+ * ??????????
+ * 1. ????????????????
+ * 2. ??????????
+ * 3. ??????????
+ * 4. ??????
  */
 @RunWith(AndroidJUnit4::class)
 @LargeTest
@@ -40,14 +40,17 @@ class PhotoNavigationIntegrationTest {
 
     @get:Rule
     val permissionRule: GrantPermissionRule = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-        GrantPermissionRule.grant(android.Manifest.permission.READ_MEDIA_IMAGES)
+        GrantPermissionRule.grant(
+            android.Manifest.permission.READ_MEDIA_IMAGES,
+            android.Manifest.permission.READ_MEDIA_VIDEO
+        )
     } else {
         GrantPermissionRule.grant(android.Manifest.permission.READ_EXTERNAL_STORAGE)
     }
 
     @Before
     fun setUp() {
-        // 创建测试照片列表
+        // ????????
         testPhotoList = arrayListOf(
             PhotoItem(
                 id = 1L,
@@ -82,28 +85,28 @@ class PhotoNavigationIntegrationTest {
         }
     }
 
+    private fun launchPhotoDetailScenario(position: Int = 0, photos: ArrayList<PhotoItem> = testPhotoList): ActivityScenario<PhotoDetailActivity> {
+        (ApplicationProvider.getApplicationContext() as PhotoTimeGrouperApp).setAllPhotosList(photos)
+        val intent = Intent(ApplicationProvider.getApplicationContext(), PhotoDetailActivity::class.java).apply {
+            putExtra(PhotoDetailActivity.EXTRA_CURRENT_POSITION, position)
+        }
+        return ActivityScenario.launch(intent)
+    }
+
     @Test
     fun testDirectPhotoDetailNavigation() {
-        // 测试直接启动详情页（模拟从主界面点击照片后的流程�?
-        
-        val intent = Intent(ApplicationProvider.getApplicationContext(), PhotoDetailActivity::class.java).apply {
-            putParcelableArrayListExtra(PhotoDetailActivity.EXTRA_PHOTO_LIST, testPhotoList)
-            putExtra(PhotoDetailActivity.EXTRA_CURRENT_POSITION, 0)
-        }
-
-        ActivityScenario.launch<PhotoDetailActivity>(intent).use { scenario ->
-            // 1. 验证详情页启�?
+        launchPhotoDetailScenario().use { _ ->
             Thread.sleep(1000)
             
-            // 2. 验证 ViewPager2 显示
+            // 2. ?? ViewPager2 ??
             onView(withId(R.id.viewPager))
                 .check(matches(isDisplayed()))
             
-            // 3. 验证照片信息布局显示
+            // 3. ??????????
             onView(withId(R.id.infoLayout))
                 .check(matches(isDisplayed()))
             
-            // 4. 验证照片信息 TextView 显示
+            // 4. ?????? TextView ??
             onView(withId(R.id.photoNameTextView))
                 .check(matches(isDisplayed()))
             
@@ -117,37 +120,30 @@ class PhotoNavigationIntegrationTest {
 
     @Test
     fun testPhotoDetailSwipeNavigation() {
-        // 测试详情页中的滑动导�?
-        
-        val intent = Intent(ApplicationProvider.getApplicationContext(), PhotoDetailActivity::class.java).apply {
-            putParcelableArrayListExtra(PhotoDetailActivity.EXTRA_PHOTO_LIST, testPhotoList)
-            putExtra(PhotoDetailActivity.EXTRA_CURRENT_POSITION, 1) // 从中间开�?
-        }
-
-        ActivityScenario.launch<PhotoDetailActivity>(intent).use { scenario ->
+        launchPhotoDetailScenario(position = 1).use { _ ->
             Thread.sleep(2000)
             
-            // 1. 向左滑动（下一张）
+            // 1. ?????????
             onView(withId(R.id.viewPager))
                 .perform(swipeLeft())
             
             Thread.sleep(500)
             
-            // 2. 验证 ViewPager2 仍然显示（没有崩溃）
+            // 2. ?? ViewPager2 ??????????
             onView(withId(R.id.viewPager))
                 .check(matches(isDisplayed()))
             
-            // 3. 向右滑动（上一张）
+            // 3. ?????????
             onView(withId(R.id.viewPager))
                 .perform(swipeRight())
             
             Thread.sleep(500)
             
-            // 4. 再次验证 ViewPager2 显示
+            // 4. ???? ViewPager2 ??
             onView(withId(R.id.viewPager))
                 .check(matches(isDisplayed()))
             
-            // 5. 验证照片信息仍然显示
+            // 5. ??????????
             onView(withId(R.id.infoLayout))
                 .check(matches(isDisplayed()))
         }
@@ -155,29 +151,20 @@ class PhotoNavigationIntegrationTest {
 
     @Test
     fun testPhotoDetailMultipleSwipes() {
-        // 测试多次滑动（验证连续交互）
-        
-        val intent = Intent(ApplicationProvider.getApplicationContext(), PhotoDetailActivity::class.java).apply {
-            putParcelableArrayListExtra(PhotoDetailActivity.EXTRA_PHOTO_LIST, testPhotoList)
-            putExtra(PhotoDetailActivity.EXTRA_CURRENT_POSITION, 0)
-        }
-
-        ActivityScenario.launch<PhotoDetailActivity>(intent).use { scenario ->
+        launchPhotoDetailScenario().use { _ ->
             Thread.sleep(2000)
-            
-            // 连续滑动测试
-            repeat(3) { index ->
-                // 向左滑动
+            repeat(3) {
+                // ????
                 onView(withId(R.id.viewPager))
                     .perform(swipeLeft())
                 
                 Thread.sleep(500)
                 
-                // 验证 ViewPager2 仍然正常工作
+                // ?? ViewPager2 ??????
                 onView(withId(R.id.viewPager))
                     .check(matches(isDisplayed()))
                 
-                // 验证照片信息显示
+                // ????????
                 onView(withId(R.id.photoIndexTextView))
                     .check(matches(isDisplayed()))
             }
@@ -186,34 +173,25 @@ class PhotoNavigationIntegrationTest {
 
     @Test
     fun testPhotoDetailBackNavigation() {
-        // 测试返回导航（使用系统返回键�?
-        
-        val intent = Intent(ApplicationProvider.getApplicationContext(), PhotoDetailActivity::class.java).apply {
-            putParcelableArrayListExtra(PhotoDetailActivity.EXTRA_PHOTO_LIST, testPhotoList)
-            putExtra(PhotoDetailActivity.EXTRA_CURRENT_POSITION, 0)
-        }
-
-        ActivityScenario.launch<PhotoDetailActivity>(intent).use { scenario ->
+        launchPhotoDetailScenario().use { scenario ->
             Thread.sleep(2000)
-            
-            // 1. 验证详情页显�?
             onView(withId(R.id.viewPager))
                 .check(matches(isDisplayed()))
             
-            // 2. 按返回键（模拟用户点击返回）
+            // 2. ??????????????
             device.pressBack()
             
             Thread.sleep(500)
             
-            // 3. 验证 Activity 已关闭（通过场景状态检查）
-            // 注意：ActivityScenario 会在 close() 时自动处理，这里主要是验证不会崩�?
+            // 3. ?? Activity ?????????????
+            // ???ActivityScenario ?? close() ??????????????????
             assert(scenario.state.toString().contains("DESTROYED") || scenario.state.toString().contains("RESUMED"))
         }
     }
 
     @Test
     fun testPhotoDetailWithSinglePhoto() {
-        // 测试只有一张照片的情况
+        // ???????????
         
         val singlePhotoList = arrayListOf(
             PhotoItem(
@@ -225,29 +203,28 @@ class PhotoNavigationIntegrationTest {
             )
         )
 
+        (ApplicationProvider.getApplicationContext() as PhotoTimeGrouperApp).setAllPhotosList(singlePhotoList)
         val intent = Intent(ApplicationProvider.getApplicationContext(), PhotoDetailActivity::class.java).apply {
-            putParcelableArrayListExtra(PhotoDetailActivity.EXTRA_PHOTO_LIST, singlePhotoList)
             putExtra(PhotoDetailActivity.EXTRA_CURRENT_POSITION, 0)
         }
-
-        ActivityScenario.launch<PhotoDetailActivity>(intent).use { scenario ->
+        ActivityScenario.launch<PhotoDetailActivity>(intent).use { _ ->
             Thread.sleep(2000)
             
-            // 1. 验证详情页正常启�?
+            // 1. ??????????
             onView(withId(R.id.viewPager))
                 .check(matches(isDisplayed()))
             
-            // 2. 验证索引显示�?"1 / 1"
+            // 2. ????????"1 / 1"
             onView(withId(R.id.photoIndexTextView))
                 .check(matches(isDisplayed()))
             
-            // 3. 尝试滑动（应该没有效果，但不会崩溃）
+            // 3. ??????????????????
             onView(withId(R.id.viewPager))
                 .perform(swipeLeft())
             
             Thread.sleep(500)
             
-            // 4. 验证仍然显示
+            // 4. ??????
             onView(withId(R.id.viewPager))
                 .check(matches(isDisplayed()))
         }

@@ -82,6 +82,22 @@
 
     </LinearLayout>
 
+    <!-- 标题栏（收藏视图时显示） -->
+    <TextView
+        android:id="@+id/titleTextView"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/spacing_16"
+        android:layout_marginTop="@dimen/spacing_16"
+        android:layout_marginEnd="@dimen/spacing_16"
+        android:textSize="@dimen/text_size_20"
+        android:textStyle="bold"
+        android:textColor="@color/text_primary"
+        android:visibility="gone"
+        app:layout_constraintEnd_toStartOf="@id/viewModeMenuButton"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <!-- 搜索栏 -->
     <androidx.appcompat.widget.SearchView
         android:id="@+id/searchView"

@@ -3,6 +3,7 @@ package com.phototimegrouper.app.repository
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.provider.MediaStore
 import com.phototimegrouper.app.PhotoItem
 import com.phototimegrouper.app.database.AppDatabase
@@ -19,9 +20,10 @@ import kotlinx.coroutines.withContext
  */
 class PhotoRepository private constructor(context: Context) {
     
-    private val database = AppDatabase.getDatabase(context)
+    private val appContext: Context = context.applicationContext
+    private val database = AppDatabase.getDatabase(appContext)
     private val photoDao = database.photoMetadataDao()
-    private val contentResolver: ContentResolver = context.contentResolver
+    private val contentResolver: ContentResolver = appContext.contentResolver
     
     companion object {
         @Volatile
@@ -52,15 +54,17 @@ class PhotoRepository private constructor(context: Context) {
         allMedia.addAll(loadVideosFromMediaStore())
         
         // 按日期排序（最新的在前）
-        allMedia.sortedByDescending { it.dateAdded }
+        return@withContext allMedia.sortedByDescending { it.dateAdded }
     }
     
     /**
      * 从 MediaStore 加载图片
+     * Android 10+ 使用最小 projection，避免请求已废弃列导致部分设备返回不全（如 Camera 目录）
      */
     private suspend fun loadImagesFromMediaStore(): List<PhotoItem> = withContext(Dispatchers.IO) {
         val photos = mutableListOf<PhotoItem>()
         val uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+        // 统一使用完整 projection，通过 getColumnIndex 动态判断可用列，既保证兼容性，又能拿到尺寸/格式等信息
         val projection = arrayOf(
             MediaStore.Images.Media._ID,
             MediaStore.Images.Media.DISPLAY_NAME,
@@ -81,24 +85,25 @@ class PhotoRepository private constructor(context: Context) {
             val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
             val dateAddedColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_ADDED)
             val dateModifiedColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_MODIFIED)
-            val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
-            val widthColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.WIDTH)
-            val heightColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.HEIGHT)
-            val mimeTypeColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.MIME_TYPE)
-            val bucketColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
-            val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
+            // 可选列：部分设备/Android 版本可能缺失，使用 getColumnIndex 避免漏掉任何照片
+            val sizeColumn = cursor.getColumnIndex(MediaStore.Images.Media.SIZE)
+            val widthColumn = cursor.getColumnIndex(MediaStore.Images.Media.WIDTH)
+            val heightColumn = cursor.getColumnIndex(MediaStore.Images.Media.HEIGHT)
+            val mimeTypeColumn = cursor.getColumnIndex(MediaStore.Images.Media.MIME_TYPE)
+            val bucketColumn = cursor.getColumnIndex(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
+            val dataColumn = cursor.getColumnIndex(MediaStore.Images.Media.DATA)
             
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idColumn)
                 val name = cursor.getString(nameColumn) ?: ""
                 val dateAdded = cursor.getLong(dateAddedColumn)
                 val dateModified = cursor.getLong(dateModifiedColumn)
-                val size = cursor.getLong(sizeColumn)
-                val width = cursor.getInt(widthColumn)
-                val height = cursor.getInt(heightColumn)
-                val mimeType = cursor.getString(mimeTypeColumn) ?: ""
-                val bucket = cursor.getString(bucketColumn) ?: ""
-                val data = cursor.getString(dataColumn) ?: ""
+                val size = if (sizeColumn >= 0) cursor.getLong(sizeColumn) else 0L
+                val width = if (widthColumn >= 0) cursor.getInt(widthColumn) else 0
+                val height = if (heightColumn >= 0) cursor.getInt(heightColumn) else 0
+                val mimeType = if (mimeTypeColumn >= 0) cursor.getString(mimeTypeColumn) ?: "" else ""
+                val bucket = if (bucketColumn >= 0) cursor.getString(bucketColumn) ?: "" else ""
+                val data = if (dataColumn >= 0) cursor.getString(dataColumn) ?: "" else ""
                 
                 val imageUri = Uri.withAppendedPath(uri, id.toString())
                 
@@ -126,10 +131,12 @@ class PhotoRepository private constructor(context: Context) {
     
     /**
      * 从 MediaStore 加载视频
+     * Android 10+ 使用最小 projection，避免请求已废弃列导致部分设备返回不全
      */
     private suspend fun loadVideosFromMediaStore(): List<PhotoItem> = withContext(Dispatchers.IO) {
         val videos = mutableListOf<PhotoItem>()
         val uri = MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        // 同样统一使用完整 projection，结合 getColumnIndex 处理可选列
         val projection = arrayOf(
             MediaStore.Video.Media._ID,
             MediaStore.Video.Media.DISPLAY_NAME,
@@ -150,24 +157,24 @@ class PhotoRepository private constructor(context: Context) {
             val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
             val dateAddedColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_ADDED)
             val dateModifiedColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_MODIFIED)
-            val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE)
-            val widthColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.WIDTH)
-            val heightColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.HEIGHT)
-            val mimeTypeColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.MIME_TYPE)
-            val bucketColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.BUCKET_DISPLAY_NAME)
-            val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATA)
+            val sizeColumn = cursor.getColumnIndex(MediaStore.Video.Media.SIZE)
+            val widthColumn = cursor.getColumnIndex(MediaStore.Video.Media.WIDTH)
+            val heightColumn = cursor.getColumnIndex(MediaStore.Video.Media.HEIGHT)
+            val mimeTypeColumn = cursor.getColumnIndex(MediaStore.Video.Media.MIME_TYPE)
+            val bucketColumn = cursor.getColumnIndex(MediaStore.Video.Media.BUCKET_DISPLAY_NAME)
+            val dataColumn = cursor.getColumnIndex(MediaStore.Video.Media.DATA)
             
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idColumn)
                 val name = cursor.getString(nameColumn) ?: ""
                 val dateAdded = cursor.getLong(dateAddedColumn)
                 val dateModified = cursor.getLong(dateModifiedColumn)
-                val size = cursor.getLong(sizeColumn)
-                val width = cursor.getInt(widthColumn)
-                val height = cursor.getInt(heightColumn)
-                val mimeType = cursor.getString(mimeTypeColumn) ?: ""
-                val bucket = cursor.getString(bucketColumn) ?: ""
-                val data = cursor.getString(dataColumn) ?: ""
+                val size = if (sizeColumn >= 0) cursor.getLong(sizeColumn) else 0L
+                val width = if (widthColumn >= 0) cursor.getInt(widthColumn) else 0
+                val height = if (heightColumn >= 0) cursor.getInt(heightColumn) else 0
+                val mimeType = if (mimeTypeColumn >= 0) cursor.getString(mimeTypeColumn) ?: "" else ""
+                val bucket = if (bucketColumn >= 0) cursor.getString(bucketColumn) ?: "" else ""
+                val data = if (dataColumn >= 0) cursor.getString(dataColumn) ?: "" else ""
                 
                 val videoUri = Uri.withAppendedPath(uri, id.toString())
                 

@@ -22,6 +22,20 @@ buildscript {
 
 // allprojects 块已移除，仓库配置统一在 settings.gradle 中管理
 
+// 仅统一 protobuf-java 版本（不强制 protobuf-lite，避免 protobuf-lite:3.21.12 不存在导致解析失败）
+subprojects { subproject ->
+    subproject.afterEvaluate {
+        subproject.configurations.all { config ->
+            config.resolutionStrategy.eachDependency { details ->
+                if (details.requested.group == "com.google.protobuf" && details.requested.name == "protobuf-java") {
+                    details.useVersion("3.21.12")
+                    details.because("Unify protobuf-java to avoid IllegalAccessError in connectedAndroidTest")
+                }
+            }
+        }
+    }
+}
+
 task clean(type: Delete) {
     delete rootProject.buildDir
 }

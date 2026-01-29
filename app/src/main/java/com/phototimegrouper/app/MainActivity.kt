@@ -54,12 +54,24 @@ class MainActivity : AppCompatActivity() {
     // 搜索筛选相关
     private var currentMediaTypeFilter: PhotoItem.MediaType? = null // 当前媒体类型筛选
     private var currentDaysFilter: Int? = null // 当前日期筛选（天数，-1表示今年）
+    private var currentSizeFilter: SizeFilter? = null // 当前大小筛选
     private var currentSearchQuery: String? = null // 当前搜索关键词
     private val searchQueryFlow = MutableStateFlow<String?>(null) // 搜索查询 Flow（用于 debounce）
+    
+    // 排序相关
+    private var currentSortOrder: SortOrder = SortOrder.DATE_DESC // 当前排序方式
     
     // SharedPreferences 用于持久化查看模式等配置（收藏现在使用 Room）
     private lateinit var sharedPreferences: SharedPreferences
     private val PREF_VIEW_MODE = "pref_view_mode"
+    private val PREF_BROWSE_MODE = "pref_browse_mode" // 浏览模式：TIME 或 FOLDER
+    private val PREF_SHOW_FAVORITES_ON_RESUME = "pref_show_favorites_on_resume" // 从其他Activity返回后是否显示收藏
+    private val PREF_RETURN_TO_FOLDER_BROWSE = "pref_return_to_folder_browse" // 从收藏视图返回时是否应该回到文件夹浏览
+    private val PREF_MEDIA_TYPE_FILTER = "pref_media_type_filter" // 媒体类型筛选偏好
+    private val PREF_DAYS_FILTER = "pref_days_filter" // 日期筛选偏好
+    private val PREF_SIZE_FILTER = "pref_size_filter" // 大小筛选偏好
+    private val PREF_SORT_ORDER = "pref_sort_order" // 排序方式偏好
+    private var isFolderBrowseMode: Boolean = false // 是否处于文件夹浏览模式
     
     // Repository 用于数据访问
     private lateinit var photoRepository: PhotoRepository
@@ -92,15 +104,50 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             ViewMode.LARGE_ICON
         }
+        
+        // 从 SharedPreferences 加载浏览模式
+        isFolderBrowseMode = sharedPreferences.getBoolean(PREF_BROWSE_MODE, false)
+        
+        // 从 SharedPreferences 加载筛选和排序偏好
+        loadFilterAndSortPreferences()
 
         // 加载收藏列表
         loadFavorites()
+        
+        // TODO: Demo版本 - 临时添加按钮启动新UI
+        // 在实际使用中，可以移除这个按钮，直接使用MainActivityNew作为启动Activity
+        binding.viewModeMenuButton.setOnLongClickListener {
+            val intent = Intent(this, MainActivityNew::class.java)
+            startActivity(intent)
+            true
+        }
         
         setupSwipeRefresh()
         setupViewModeMenu()
         setupSelectionMode()
         setupSearchView()
         setupSearchFlow()
+        updateFavoritesViewUI() // 初始化UI状态
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        // 从其他Activity返回时，重新读取浏览模式状态，确保菜单文字正确
+        val savedBrowseMode = sharedPreferences.getBoolean(PREF_BROWSE_MODE, false)
+        if (isFolderBrowseMode != savedBrowseMode) {
+            isFolderBrowseMode = savedBrowseMode
+        }
+        
+        // 检查是否需要显示收藏（从FolderListActivity返回时设置）
+        val shouldShowFavorites = sharedPreferences.getBoolean(PREF_SHOW_FAVORITES_ON_RESUME, false)
+        if (shouldShowFavorites) {
+            sharedPreferences.edit().putBoolean(PREF_SHOW_FAVORITES_ON_RESUME, false).apply()
+            // 如果当前不在收藏视图，切换到收藏视图
+            if (!showFavoritesOnly) {
+                toggleFavoritesFilter()
+            }
+        }
+        
         checkPermissions()
     }
     
@@ -333,6 +380,36 @@ class MainActivity : AppCompatActivity() {
             val popupMenu = PopupMenu(this, view)
             popupMenu.menuInflater.inflate(R.menu.view_mode_menu, popupMenu.menu)
             
+            // 每次打开菜单时，重新读取当前状态（可能从其他Activity返回后状态已更新）
+            val currentBrowseMode = sharedPreferences.getBoolean(PREF_BROWSE_MODE, false)
+            isFolderBrowseMode = currentBrowseMode
+            
+            // Fix bug #1: Handle favorites view mode
+            if (showFavoritesOnly) {
+                popupMenu.menu.findItem(R.id.menu_privacy_policy).isVisible = false
+                popupMenu.menu.findItem(R.id.menu_search).isVisible = false
+                popupMenu.menu.findItem(R.id.menu_recycle_bin_demo).isVisible = false
+                popupMenu.menu.findItem(R.id.menu_browse_folders).isVisible = false
+                popupMenu.menu.findItem(R.id.menu_extra_large_icon).isVisible = false
+                popupMenu.menu.findItem(R.id.menu_large_icon).isVisible = false
+                popupMenu.menu.findItem(R.id.menu_small_icon).isVisible = false
+                popupMenu.menu.findItem(R.id.menu_details).isVisible = false
+                popupMenu.menu.findItem(R.id.menu_show_favorites)?.let { item ->
+                    item.title = getString(R.string.go_back)
+                }
+            } else {
+                // Fix bug #3: Update browse mode menu text based on current state
+                // 如果当前是文件夹浏览模式，菜单显示"按时间浏览"（点击后切换回时间浏览）
+                // 如果当前是时间浏览模式，菜单显示"按文件夹浏览"（点击后切换到文件夹浏览）
+                popupMenu.menu.findItem(R.id.menu_browse_folders)?.let { item ->
+                    if (isFolderBrowseMode) {
+                        item.title = getString(R.string.browse_by_time)
+                    } else {
+                        item.title = getString(R.string.browse_folders)
+                    }
+                }
+            }
+            
             // 设置当前选中�?
             when (currentViewMode) {
                 ViewMode.EXTRA_LARGE_ICON -> popupMenu.menu.findItem(R.id.menu_extra_large_icon).isChecked = true
@@ -367,7 +444,25 @@ class MainActivity : AppCompatActivity() {
                         true
                     }
                     R.id.menu_show_favorites -> {
-                        toggleFavoritesFilter()
+                        if (showFavoritesOnly) {
+                            // 如果当前在收藏视图，点击返回
+                            toggleFavoritesFilter() // 先关闭收藏视图
+                            // 检查是否需要返回到文件夹浏览
+                            val shouldReturnToFolder = sharedPreferences.getBoolean(PREF_RETURN_TO_FOLDER_BROWSE, false)
+                            if (shouldReturnToFolder) {
+                                sharedPreferences.edit().putBoolean(PREF_RETURN_TO_FOLDER_BROWSE, false).apply()
+                                // 返回到文件夹浏览：不finish() MainActivity，而是启动FolderListActivity
+                                // 这样Activity栈保持：FolderListActivity -> MainActivity
+                                // 当用户点击"按时间浏览"时，FolderListActivity finish()后，MainActivity还在栈中
+                                val intent = Intent(this, FolderListActivity::class.java).apply {
+                                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                                }
+                                startActivity(intent)
+                                // 不调用finish()，保持MainActivity在栈中
+                            }
+                        } else {
+                            toggleFavoritesFilter()
+                        }
                         true
                     }
                     R.id.menu_search -> {
@@ -376,6 +471,22 @@ class MainActivity : AppCompatActivity() {
                     }
                     R.id.menu_recycle_bin_demo -> {
                         openRecycleBinDemo()
+                        true
+                    }
+                    R.id.menu_browse_folders -> {
+                        // 使用当前状态（已在菜单打开时更新）
+                        if (isFolderBrowseMode) {
+                            // 如果当前是文件夹浏览模式，切换回时间浏览
+                            isFolderBrowseMode = false
+                            sharedPreferences.edit().putBoolean(PREF_BROWSE_MODE, false).apply()
+                            loadPhotos()
+                        } else {
+                            // 如果当前是时间浏览模式，切换到文件夹浏览
+                            isFolderBrowseMode = true
+                            sharedPreferences.edit().putBoolean(PREF_BROWSE_MODE, true).apply()
+                            val intent = Intent(this@MainActivity, FolderListActivity::class.java)
+                            startActivity(intent)
+                        }
                         true
                     }
                     else -> false
@@ -392,6 +503,88 @@ class MainActivity : AppCompatActivity() {
             startActivity(intent)
         } catch (e: Exception) {
             Toast.makeText(this, "无法打开回收站预览: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun openFolderList() {
+        // This method is kept for compatibility, but menu_browse_folders now handles it directly
+        try {
+            isFolderBrowseMode = true
+            sharedPreferences.edit().putBoolean(PREF_BROWSE_MODE, true).apply()
+            val intent = Intent(this, FolderListActivity::class.java)
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "无法打开文件夹列表: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    /**
+     * 从 SharedPreferences 加载筛选和排序偏好
+     */
+    private fun loadFilterAndSortPreferences() {
+        // 加载媒体类型筛选
+        val mediaTypeName = sharedPreferences.getString(PREF_MEDIA_TYPE_FILTER, null)
+        currentMediaTypeFilter = mediaTypeName?.let {
+            try {
+                PhotoItem.MediaType.valueOf(it)
+            } catch (e: Exception) {
+                null
+            }
+        }
+        
+        // 加载日期筛选
+        val daysFilter = sharedPreferences.getInt(PREF_DAYS_FILTER, -999) // -999表示未设置
+        currentDaysFilter = if (daysFilter != -999) daysFilter else null
+        
+        // 加载大小筛选
+        val sizeFilterName = sharedPreferences.getString(PREF_SIZE_FILTER, null)
+        currentSizeFilter = sizeFilterName?.let {
+            try {
+                SizeFilter.valueOf(it)
+            } catch (e: Exception) {
+                null
+            }
+        }
+        
+        // 加载排序方式
+        val sortOrderName = sharedPreferences.getString(PREF_SORT_ORDER, SortOrder.DATE_DESC.name)
+        currentSortOrder = try {
+            SortOrder.valueOf(sortOrderName ?: SortOrder.DATE_DESC.name)
+        } catch (e: Exception) {
+            SortOrder.DATE_DESC
+        }
+    }
+    
+    /**
+     * 保存筛选和排序偏好到 SharedPreferences
+     */
+    private fun saveFilterAndSortPreferences() {
+        sharedPreferences.edit().apply {
+            // 保存媒体类型筛选
+            if (currentMediaTypeFilter != null) {
+                putString(PREF_MEDIA_TYPE_FILTER, currentMediaTypeFilter!!.name)
+            } else {
+                remove(PREF_MEDIA_TYPE_FILTER)
+            }
+            
+            // 保存日期筛选
+            if (currentDaysFilter != null) {
+                putInt(PREF_DAYS_FILTER, currentDaysFilter!!)
+            } else {
+                remove(PREF_DAYS_FILTER)
+            }
+            
+            // 保存大小筛选
+            if (currentSizeFilter != null) {
+                putString(PREF_SIZE_FILTER, currentSizeFilter!!.name)
+            } else {
+                remove(PREF_SIZE_FILTER)
+            }
+            
+            // 保存排序方式
+            putString(PREF_SORT_ORDER, currentSortOrder.name)
+            
+            apply()
         }
     }
     
@@ -441,7 +634,21 @@ class MainActivity : AppCompatActivity() {
             showFavoritesOnly = false
             return
         }
+        updateFavoritesViewUI() // 更新UI（标题栏和搜索栏显示/隐藏）
         loadPhotos() // 重新加载照片，应用筛选
+    }
+    
+    private fun updateFavoritesViewUI() {
+        if (showFavoritesOnly) {
+            // 显示收藏视图：显示标题栏，隐藏搜索栏
+            binding.titleTextView.visibility = View.VISIBLE
+            binding.titleTextView.text = getString(R.string.favorites_title)
+            binding.searchView.visibility = View.GONE
+        } else {
+            // 正常视图：隐藏标题栏，显示搜索栏
+            binding.titleTextView.visibility = View.GONE
+            binding.searchView.visibility = View.VISIBLE
+        }
     }
     
     /**
@@ -490,30 +697,79 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun showSearchDialog() {
-        // 简单的筛选对话框
-        val options = arrayOf("全部", "仅照片", "仅视频", "最近7天", "最近30天", "今年")
+        // 增强的筛选和排序对话框
+        val options = mutableListOf<String>()
+        
+        // 筛选选项
+        options.add("━━━ 筛选 ━━━")
+        options.add("全部（清除筛选）")
+        options.add("仅照片")
+        options.add("仅视频")
+        options.add("最近7天")
+        options.add("最近30天")
+        options.add("今年")
+        options.add("━━━ 按大小筛选 ━━━")
+        options.add("小于100KB")
+        options.add("100KB - 1MB")
+        options.add("1MB - 10MB")
+        options.add("10MB - 100MB")
+        options.add("大于100MB")
+        options.add("━━━ 排序 ━━━")
+        options.add("日期（新到旧）")
+        options.add("日期（旧到新）")
+        options.add("名称（A-Z）")
+        options.add("名称（Z-A）")
+        options.add("大小（大到小）")
+        options.add("大小（小到大）")
+        
         AlertDialog.Builder(this)
-            .setTitle("筛选")
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> filterPhotos(null, null) // 全部
-                    1 -> filterPhotos(PhotoItem.MediaType.IMAGE, null) // 仅照片
-                    2 -> filterPhotos(PhotoItem.MediaType.VIDEO, null) // 仅视频
-                    3 -> filterPhotos(null, 7) // 最近7天
-                    4 -> filterPhotos(null, 30) // 最近30天
-                    5 -> filterPhotos(null, -1) // 今年
+            .setTitle("筛选和排序")
+            .setItems(options.toTypedArray()) { _, which ->
+                when {
+                    which == 1 -> filterPhotos(null, null, null) // 全部（清除筛选）
+                    which == 2 -> filterPhotos(PhotoItem.MediaType.IMAGE, null, null) // 仅照片
+                    which == 3 -> filterPhotos(PhotoItem.MediaType.VIDEO, null, null) // 仅视频
+                    which == 4 -> filterPhotos(null, 7, null) // 最近7天
+                    which == 5 -> filterPhotos(null, 30, null) // 最近30天
+                    which == 6 -> filterPhotos(null, -1, null) // 今年
+                    which == 8 -> filterPhotos(currentMediaTypeFilter, currentDaysFilter, SizeFilter.TINY) // 小于100KB
+                    which == 9 -> filterPhotos(currentMediaTypeFilter, currentDaysFilter, SizeFilter.SMALL) // 100KB - 1MB
+                    which == 10 -> filterPhotos(currentMediaTypeFilter, currentDaysFilter, SizeFilter.MEDIUM) // 1MB - 10MB
+                    which == 11 -> filterPhotos(currentMediaTypeFilter, currentDaysFilter, SizeFilter.LARGE) // 10MB - 100MB
+                    which == 12 -> filterPhotos(currentMediaTypeFilter, currentDaysFilter, SizeFilter.HUGE) // 大于100MB
+                    which == 14 -> setSortOrder(SortOrder.DATE_DESC) // 日期（新到旧）
+                    which == 15 -> setSortOrder(SortOrder.DATE_ASC) // 日期（旧到新）
+                    which == 16 -> setSortOrder(SortOrder.NAME_ASC) // 名称（A-Z）
+                    which == 17 -> setSortOrder(SortOrder.NAME_DESC) // 名称（Z-A）
+                    which == 18 -> setSortOrder(SortOrder.SIZE_DESC) // 大小（大到小）
+                    which == 19 -> setSortOrder(SortOrder.SIZE_ASC) // 大小（小到大）
                 }
             }
             .setNegativeButton("取消", null)
             .show()
     }
     
-    private fun filterPhotos(mediaType: PhotoItem.MediaType?, days: Int?) {
+    private fun filterPhotos(mediaType: PhotoItem.MediaType?, days: Int?, sizeFilter: SizeFilter? = null) {
         // 设置筛选条件
         currentMediaTypeFilter = mediaType
         currentDaysFilter = days
+        if (sizeFilter != null) {
+            currentSizeFilter = sizeFilter
+        }
+        
+        // 保存偏好
+        saveFilterAndSortPreferences()
         
         // 重新加载照片，应用筛选
+        loadPhotos()
+    }
+    
+    /**
+     * 设置排序方式
+     */
+    private fun setSortOrder(sortOrder: SortOrder) {
+        currentSortOrder = sortOrder
+        saveFilterAndSortPreferences()
         loadPhotos()
     }
     
@@ -661,6 +917,12 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 }
+                
+                // 4. 应用大小筛选
+                filteredPhotos = FilterAndSortUtils.filterBySize(filteredPhotos, currentSizeFilter)
+                
+                // 5. 应用排序
+                filteredPhotos = FilterAndSortUtils.sortPhotos(filteredPhotos, currentSortOrder)
                 
                 val groupedPhotos = groupPhotosByDate(filteredPhotos)
                 

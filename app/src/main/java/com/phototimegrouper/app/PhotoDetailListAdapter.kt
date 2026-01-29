@@ -19,7 +19,10 @@ import com.bumptech.glide.request.RequestOptions
 class PhotoDetailListAdapter(
     private val context: Context,
     private val photoList: List<PhotoItem>,
-    private val onPhotoClick: ((Int) -> Unit)? = null
+    private val isSelectionMode: (() -> Boolean)? = null,
+    private val isPhotoSelected: ((Long) -> Boolean)? = null,
+    private val onPhotoClick: ((Int) -> Unit)? = null,
+    private val onPhotoLongClick: ((Int) -> Unit)? = null
 ) : RecyclerView.Adapter<PhotoDetailListAdapter.PhotoDetailListViewHolder>() {
 
     class PhotoDetailListViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -29,6 +32,8 @@ class PhotoDetailListAdapter(
         val sizeTextView: TextView = view.findViewById(R.id.photoSizeTextView)
         val formatTextView: TextView = view.findViewById(R.id.photoFormatTextView)
         val videoPlayIcon: ImageView = view.findViewById(R.id.videoPlayIcon)
+        val selectionOverlay: View = view.findViewById(R.id.selectionOverlay)
+        val checkMark: ImageView = view.findViewById(R.id.checkMark)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PhotoDetailListViewHolder {
@@ -93,9 +98,25 @@ class PhotoDetailListAdapter(
                 .into(holder.thumbnailImageView)
         }
         
+        // 设置选中状态
+        val isSelected = isPhotoSelected?.invoke(photo.id) ?: false
+        val inSelectionMode = isSelectionMode?.invoke() ?: false
+        holder.selectionOverlay.visibility = if (inSelectionMode && isSelected) View.VISIBLE else View.GONE
+        holder.checkMark.visibility = if (inSelectionMode && isSelected) View.VISIBLE else View.GONE
+        
         // 添加点击事件
         holder.itemView.setOnClickListener {
-            onPhotoClick?.invoke(position)
+            if (inSelectionMode) {
+                onPhotoClick?.invoke(position)
+            } else {
+                onPhotoClick?.invoke(position)
+            }
+        }
+        
+        // 添加长按事件
+        holder.itemView.setOnLongClickListener {
+            onPhotoLongClick?.invoke(position)
+            true
         }
     }
 

@@ -41,4 +41,8 @@
     <item
         android:id="@+id/menu_recycle_bin_demo"
         android:title="@string/recycle_bin_demo" />
+
+    <item
+        android:id="@+id/menu_browse_folders"
+        android:title="@string/browse_folders" />
 </menu>

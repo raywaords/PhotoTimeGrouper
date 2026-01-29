@@ -1,26 +1,65 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:paddingStart="@dimen/spacing_16"
-    android:paddingEnd="@dimen/spacing_16"
-    android:paddingTop="@dimen/spacing_16"
+    android:paddingStart="@dimen/spacing_12"
+    android:paddingEnd="@dimen/spacing_12"
+    android:paddingTop="@dimen/spacing_8"
     android:paddingBottom="@dimen/spacing_8">
 
-    <TextView
-        android:id="@+id/dateTextView"
+    <!-- 与相册一致的日期卡片：缩略图 + 日期 + 数量 -->
+    <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingStart="@dimen/spacing_16"
-        android:paddingEnd="@dimen/spacing_16"
-        android:paddingTop="@dimen/spacing_12"
-        android:paddingBottom="@dimen/spacing_12"
-        android:textSize="@dimen/text_size_18"
-        android:textStyle="bold"
-        android:textColor="@color/text_primary"
-        android:background="@drawable/group_header_background"
-        android:fontFamily="sans-serif-medium" />
+        app:cardCornerRadius="8dp"
+        app:cardElevation="2dp"
+        app:cardBackgroundColor="@color/card_background">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="@dimen/spacing_8">
+
+            <ImageView
+                android:id="@+id/groupCoverImageView"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:scaleType="centerCrop"
+                android:background="@color/surface_variant"
+                android:contentDescription="@null" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/spacing_8"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/dateTextView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/text_primary"
+                    android:textSize="@dimen/text_size_14"
+                    android:textStyle="bold"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+
+                <TextView
+                    android:id="@+id/groupCountTextView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="@dimen/text_size_12" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/groupRecyclerView"

@@ -18,8 +18,9 @@ object DateFormatter {
         SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
     }
     
+    /** ??????????????? Unicode ???????yyyy?M?d? */
     private val dateHeaderFormat: ThreadLocal<SimpleDateFormat> = ThreadLocal.withInitial {
-        SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault())
+        SimpleDateFormat("yyyy\u5e74M\u6708d\u65e5", Locale.CHINA)
     }
     
     private val dateHeaderInputFormat: ThreadLocal<SimpleDateFormat> = ThreadLocal.withInitial {

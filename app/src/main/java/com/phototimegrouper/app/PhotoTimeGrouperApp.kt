@@ -24,7 +24,19 @@ class PhotoTimeGrouperApp : Application() {
     fun setAllPhotosList(photos: List<PhotoItem>) {
         allPhotosList = ArrayList(photos)
     }
-    
+
+    /** 点击某日期前由 PhotosFragment 写入，供 DayPhotosFragment 读取并展示该日照片 */
+    var dayPhotosForDetail: ArrayList<PhotoItem>? = null
+        private set
+
+    fun setDayPhotosForDetail(photos: List<PhotoItem>) {
+        dayPhotosForDetail = ArrayList(photos)
+    }
+
+    fun clearDayPhotosForDetail() {
+        dayPhotosForDetail = null
+    }
+
     override fun onCreate() {
         super.onCreate()
         instance = this

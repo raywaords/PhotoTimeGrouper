@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_photos"
+        android:icon="@android:drawable/ic_menu_gallery"
+        android:title="@string/photos" />
+    
+    <item
+        android:id="@+id/nav_albums"
+        android:icon="@android:drawable/ic_menu_view"
+        android:title="@string/albums" />
+    
+    <item
+        android:id="@+id/nav_favorites"
+        android:icon="@drawable/ic_favorite_filled"
+        android:title="@string/favorites_title" />
+    
+    <item
+        android:id="@+id/nav_more"
+        android:icon="@android:drawable/ic_menu_more"
+        android:title="@string/more" />
+</menu>

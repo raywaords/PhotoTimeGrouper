@@ -40,6 +40,26 @@
                 android:visibility="gone"
                 android:contentDescription="@string/video_play" />
 
+            <!-- 选中遮罩 -->
+            <View
+                android:id="@+id/selectionOverlay"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="#8000AA00"
+                android:visibility="gone" />
+
+            <!-- 勾选标记 -->
+            <ImageView
+                android:id="@+id/checkMark"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="top|end"
+                android:layout_margin="4dp"
+                android:src="@android:drawable/checkbox_on_background"
+                android:background="@drawable/check_mark_background"
+                android:visibility="gone"
+                android:contentDescription="已选择" />
+
         </FrameLayout>
 
         <LinearLayout

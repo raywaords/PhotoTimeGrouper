@@ -10,6 +10,9 @@
     <color name="surface_variant">#E7E0EC</color>
     <color name="surface_dim">#DED8E1</color>
     
+    <!-- Semantic: Error / Destructive -->
+    <color name="error">#B3261E</color>
+
     <!-- Text Colors -->
     <color name="text_primary">#1C1B1F</color>
     <color name="text_secondary">#49454F</color>
@@ -29,9 +32,16 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="ic_launcher_background">#6750A4</color>
+    <color name="ic_launcher_background">#15A4F7</color>
     
     <!-- Photo Detail Background -->
     <color name="photo_detail_background">#000000</color>
     <color name="photo_info_background">#80000000</color>
+    
+    <!-- Bottom Navigation Colors -->
+    <color name="bottom_nav_item_color">#79747E</color>
+    <color name="bottom_nav_item_selected_color">#6750A4</color>
+    
+    <!-- Additional Colors -->
+    <color name="text_hint">#9E9E9E</color>
 </resources>
